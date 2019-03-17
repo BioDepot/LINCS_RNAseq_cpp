@@ -18,7 +18,7 @@ This script download all the necessary support files (reference indices and barc
 
 For all binaries the -h flag gives documentation about the available flags and an example of how to use the binary: 
 
-##To run using Docker
+## To run using Docker
 
 As an alternative to compiling and running the executables, we also provide a docker container with the executables installed.
 
