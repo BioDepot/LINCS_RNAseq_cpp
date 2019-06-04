@@ -28,17 +28,23 @@ runJob(){
 		 echo thread $1 working on $dir
 		 #echo "cat $dir/*.fq >  $dir/all.fastq"
 		 cat $dir/*.fq >  $dir/all.fastq
-		 (bwa aln -l $BWA_ALN_SEED_LENGTH -t 1 $REF_SEQ_FILE $dir/all.fastq 2>/dev/null | bwa samse -n $BWA_SAM_MAX_ALIGNS_FOR_XA_TAG $REF_SEQ_FILE - $dir/all.fastq | $FILTERBIN > $dir/all.sam ) & > /dev/null 
-		 rm $dir/all.fastq
+		 #put this just in case there is a race condition
+		 if ls $dir/all.fastq 1> /dev/null 2>&1; then
+		  (bwa aln -l $BWA_ALN_SEED_LENGTH -t 1 $REF_SEQ_FILE $dir/all.fastq 2>/dev/null | bwa samse -n $BWA_SAM_MAX_ALIGNS_FOR_XA_TAG $REF_SEQ_FILE - $dir/all.fastq | $FILTERBIN > $dir/all.sam ) 
+		  rm $dir/all.fastq
+		 else
+		  echo 'all.fastq not found'
+		 fi
 		fi
 	done
 	exit
 }
-dirs=( $(find $ALIGN_DIR -mindepth 1 -maxdepth 1 -type d))
+dirs=( $(find $ALIGN_DIR -mindepth 1 -maxdepth 1 -type d) )
 
 for i in $(seq 2 $nThreads); do
-	  runJob $i &
+	runJob $i &
 done
+
 runJob 1 &
 wait
 rm -rf $lockDir

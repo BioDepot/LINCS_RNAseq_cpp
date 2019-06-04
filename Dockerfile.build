@@ -1,6 +1,4 @@
-FROM biodepot/alpine-bwa:3.7-0.7.15
-RUN apk update upgrade && apk add build-base 
-RUN apk add boost-dev
-RUN apk add zlib zlib-dev
+FROM alpine:3.9.2
+RUN apk update upgrade --no-cache && apk add build-base boost-dev zlib zlib-dev
 COPY /source /source
 RUN cd source && make clean && make all96  STATIC=1 SSE2=1 ALPINE=1 &&  make clean && make all384  STATIC=1 SSE2=1 ALPINE=1

@@ -8,7 +8,7 @@
 
 #Docker parameters
 NWELLS=96
-DOCKERCMD="docker run --rm -v $1/data/LINCS:/data -e NWELLS=$NWELLS biodepot/rnaseq-umi-cpp:latest "
+DOCKERCMD="docker run --rm -it  -v $PROFILEDIR/profile_data:/.cprofiles -v $1/data/LINCS:/data -e NWELLS=$NWELLS biodepot/rnaseq-umi-cpp:profiler "
 
 # 1.1 Global
 
@@ -55,11 +55,17 @@ done
  #split into wells
  #use tight checking no mismatch no ambiguities to match original - default is the looser setting of mismatch =1 and missing N=1 
 
+PROFILEDIR="${PWD}/profile_split"
+DOCKERCMD="docker run --rm -it  -v $PROFILEDIR:/.cprofiles -v $1/data/LINCS:/data -e NWELLS=$NWELLS biodepot/rnaseq-umi-cpp:profiler "
 echo "$DOCKERCMD umisplit -v -l 16 -m 0 -N 0 -t $THREAD_NUMBER -b $BARCODE_FILE $SEQ_FILES"
 $DOCKERCMD umisplit -v -l 16 -m 0 -N 0 -o $ALIGN_DIR -t $THREAD_NUMBER -b $BARCODE_FILE $SEQ_FILES
 
+PROFILEDIR="${PWD}/profile_align"
+DOCKERCMD="docker run --rm -it  -v $PROFILEDIR:/.cprofiles -v $1/data/LINCS:/data -e NWELLS=$NWELLS biodepot/rnaseq-umi-cpp:profiler "
 echo "$DOCKERCMD multibwa.sh $TOP_DIR $REF_DIR $SPECIES_DIR $ALIGN_DIR $BWA_ALN_SEED_LENGTH $BWA_SAM_MAX_ALIGNS_FOR_XA_TAG $THREAD_NUMBER"
 $DOCKERCMD multibwa.sh $TOP_DIR $REF_DIR $SPECIES_DIR $ALIGN_DIR $BWA_ALN_SEED_LENGTH $BWA_SAM_MAX_ALIGNS_FOR_XA_TAG $THREAD_NUMBER
 
+PROFILEDIR="${PWD}/profile_merge"
+DOCKERCMD="docker run --rm -it  -v $PROFILEDIR:/.cprofiles -v $1/data/LINCS:/data -e NWELLS=$NWELLS biodepot/rnaseq-umi-cpp:profiler "
 echo "$DOCKERCMD umimerge_parallel -i $SAMPLE_ID -s $SYM2REF_FILE -e $ERCC_SEQ_FILE -b $BARCODE_FILE -a $ALIGN_DIR -o $COUNT_DIR -t $THREAD_NUMBER"
 $DOCKERCMD umimerge_parallel -i $SAMPLE_ID -s $SYM2REF_FILE -e $ERCC_SEQ_FILE -b $BARCODE_FILE -a $ALIGN_DIR -o $COUNT_DIR -t $THREAD_NUMBER
