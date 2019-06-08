@@ -320,7 +320,7 @@ bool getLines(gzFile fp1, gzFile fp2, char *bufferR1[], char *bufferR2, bool *mi
 }
 bool checkNames(char *line1,char *line2){
     char *a=line1,*b=line2;
-    while(a && b){
+    while(*a && *b){
         if (*a ==' ' && *b== ' '){
             *a=0;
             return 0;
