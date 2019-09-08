@@ -57,7 +57,7 @@ done
 
 PROFILEDIR="${PWD}/profile_split"
 DOCKERCMD="docker run --rm -it  -v $PROFILEDIR:/.cprofiles -v $1/data/LINCS:/data -e NWELLS=$NWELLS biodepot/rnaseq-umi-cpp:profiler "
-echo "$DOCKERCMD umisplit -v -l 16 -m 0 -N 0 -t $THREAD_NUMBER -b $BARCODE_FILE $SEQ_FILES"
+echo "$DOCKERCMD umisplit -v -l 16 -m 0 -N 0 -o $ALIGN_DIR -t $THREAD_NUMBER -b $BARCODE_FILE $SEQ_FILES"
 $DOCKERCMD umisplit -v -l 16 -m 0 -N 0 -o $ALIGN_DIR -t $THREAD_NUMBER -b $BARCODE_FILE $SEQ_FILES
 
 PROFILEDIR="${PWD}/profile_align"
