@@ -405,7 +405,7 @@ class Counts{
 	 fclose(fp);		
 	}
  
-	template <class T1,class T2> void merge_parallel (int nThreads,vector<string> &erccList ,vector<string> &geneList, vector<string> &wellList, string aligned_dir, umipanel<T1,T2> &barcodePanel,  unordered_map<string,string> refseq_to_gene,unordered_map<string,unsigned int>well_to_index,unordered_map<string,unsigned int>ercc_to_index,unordered_map<string,unsigned int>gene_to_index, uint32_t posMask, int binSize, int nbins, bool geneLevelFilter){
+	template <class T1,class T2> void merge_parallel (int nThreads,vector<string> &erccList ,vector<string> &geneList, vector<string> &wellList, string aligned_dir, umipanel<T1,T2> &barcodePanel,  unordered_map<string,string> refseq_to_gene,unordered_map<string,unsigned int>well_to_index,unordered_map<string,unsigned int>ercc_to_index,unordered_map<string,unsigned int>gene_to_index, uint32_t posMask, int binSize, int nbins, bool geneLevelFilter, bool mixtureOfWells){
 		const uint64_t nCategories=geneList.size()+erccList.size()+1; //add1 for chrM
 	 //fprintf (stderr, "nCategories is %d Gene list size is %d errccList.szie is %d \n",nCategories, geneList.size(),erccList.size());
   #pragma omp parallel for num_threads (nThreads) schedule (dynamic)
@@ -422,6 +422,7 @@ class Counts{
 
 		 string well=barcodePanel.wells[wellIndex];
 		 string globString=aligned_dir+"/"+well+"/"+"*.sam";
+		 if (mixtureOfWells) globString=aligned_dir+"/*_"+well+"_"+"*.sam";
 			glob(globString.c_str(),GLOB_TILDE,NULL,&glob_result);
 		 for(int j=0; j<glob_result.gl_pathc; j++){
 				inputFiles.push_back(string(glob_result.gl_pathv[j]));
@@ -567,7 +568,7 @@ class Counts{
 	}
 	
  
-	template <class T1,class T2> void merge_filter(int nThreads,vector<string> &erccList ,vector<string> &geneList, vector<string> &wellList, string aligned_dir, umipanel<T1,T2> &barcodePanel,  unordered_map<string,string> refseq_to_gene,unordered_map<string,unsigned int>well_to_index,unordered_map<string,unsigned int>ercc_to_index,unordered_map<string,unsigned int>gene_to_index, uint32_t posMask, int binSize, int nbins, bool geneLevelFilter){
+	template <class T1,class T2> void merge_filter(int nThreads,vector<string> &erccList ,vector<string> &geneList, vector<string> &wellList, string aligned_dir, umipanel<T1,T2> &barcodePanel,  unordered_map<string,string> refseq_to_gene,unordered_map<string,unsigned int>well_to_index,unordered_map<string,unsigned int>ercc_to_index,unordered_map<string,unsigned int>gene_to_index, uint32_t posMask, int binSize, int nbins, bool geneLevelFilter, bool mixtureOfWells){
 		const uint64_t nCategories=geneList.size()+erccList.size()+1; //add1 for chrM
 		
   //each thread works on a well
@@ -585,7 +586,9 @@ class Counts{
 		 //string well=(wellIndex >=NWELLS) ? "X" :barcodePanel.wells[wellIndex];
 		 string well=barcodePanel.wells[wellIndex];
 		 string globString=aligned_dir+"/"+well+"/"+"*.saf";
+		 if (mixtureOfWells) globString=aligned_dir+"/*_"+well+"_"+"*.saf";
 			glob(globString.c_str(),GLOB_TILDE,NULL,&glob_result);
+		 fprintf(stderr,"The glob string is %s\n",globString.c_str());
 		 for(int j=0; j<glob_result.gl_pathc; j++){
 				inputFiles.push_back(string(glob_result.gl_pathv[j]));
 		 }
@@ -711,14 +714,14 @@ int main(int argc, char *argv[]){
 	int nbins=16;
 	int binSize=0;
 	uint32_t posMask=(1 << nbins+1) -1;
-	bool geneLevelFilter=0,filteredSAMfiles=0;
+	bool geneLevelFilter=0,filteredSAMfiles=0,mixtureOfWells=0;
 	string sample_id="",sym2ref="", ercc_fasta="", barcodes="", aligned_dir="", dge_dir="",countsFile="";
 	int opt,verbose=0,nThreads=1;
 	struct optparse options;
  optparse_init(&options, argv);	
  
- string errmsg="umimerge_parallel v?hfn:go:t:i:s:e:m:c:b:a:p:\n-h -?  (display this message)\n-v (Verbose mode)\n-f Merge filtered SAM files (*.saf) instead of full SAM files\n-s <sym2ref file>\n-e <ercc_fasta file>\n-b <barcode_file>\n-a <aligns directory>\n-o <dge_dir(counts directory)>\n-c <binary file with umicounts - default is UMIcounts.bin in the input SAM directory>\n-t <number of threads (1)>\n-p <bin size for UMI position based filtering i.e 0 bits means reads with identical UMIs are discarded if they have same mapping position; 1 bit means reads with identical UMIs are discarded if their mapping position falls into same 2 basepair bin; 2 bit mean 4 basepair bins etc... \n\nRequired params are -i sample_id -s sym2ref -e ercc_fasta -b barcodes -a aligned_dir -o dge_dir\n\nExample:\n\numimerge_parallel -i RNAseq_20150409 -s  References/Broad_UMI/Human_RefSeq/refGene.hg19.sym2ref.dat -e References/Broad_UMI/ERCC92.fa -b References/Broad_UMI/barcodes_trugrade_96_set4.dat -a Aligns -o Counts -t 4 -p 0\n";
- while ((opt = optparse(&options, "v?hfn:go:t:i:s:e:m:c:b:a:p:")) != -1) {
+ string errmsg="umimerge_parallel v?hfmn:go:t:i:s:e:m:c:b:a:p:\n-h -?  (display this message)\n-v (Verbose mode)\n-f Merge filtered SAM files (*.saf) instead of full SAM files\n-s <sym2ref file>\n-e <ercc_fasta file>\n-b <barcode_file>\n-a <aligns directory>\n-o <dge_dir(counts directory)>\n-c <binary file with umicounts - default is UMIcounts.bin in the input SAM directory>\n-t <number of threads (1)>\n-p <bin size for UMI position based filtering i.e 0 bits means reads with identical UMIs are discarded if they have same mapping position; 1 bit means reads with identical UMIs are discarded if their mapping position falls into same 2 basepair bin; 2 bit mean 4 basepair bins etc... \n-m The aligned files in the output directory are not separated into wells by subdirectories and the filename is used to identify the well\n\nRequired params are -i sample_id -s sym2ref -e ercc_fasta -b barcodes -a aligned_dir -o dge_dir\n\nExample:\n\numimerge_parallel -i RNAseq_20150409 -s  References/Broad_UMI/Human_RefSeq/refGene.hg19.sym2ref.dat -e References/Broad_UMI/ERCC92.fa -b References/Broad_UMI/barcodes_trugrade_96_set4.dat -a Aligns -o Counts -t 4 -p 0\n";
+ while ((opt = optparse(&options, "v?hfmn:go:t:i:s:e:m:c:b:a:p:")) != -1) {
   switch (opt){
 			case 'v':
 			 verbose=1;
@@ -757,6 +760,9 @@ int main(int argc, char *argv[]){
    case 'b':
     barcodes=string(options.optarg);
    break;
+   case 'm':
+    mixtureOfWells=1;
+   break;   
    case 'a':
     aligned_dir=string(options.optarg);
     if(countsFile ==""){
@@ -811,8 +817,8 @@ int main(int argc, char *argv[]){
 	
 	Counts count(nThreads,erccList.size(),geneList.size());
  
- if (filteredSAMfiles) count.merge_filter(nThreads,erccList,geneList,wellList,aligned_dir,barcodePanel,refseq_to_gene,well_to_index,ercc_to_index,gene_to_index, posMask,binSize,nbins,geneLevelFilter);
- else count.merge_parallel(nThreads,erccList,geneList,wellList,aligned_dir,barcodePanel,refseq_to_gene,well_to_index,ercc_to_index,gene_to_index, posMask,binSize,nbins,geneLevelFilter);
+ if (filteredSAMfiles) count.merge_filter(nThreads,erccList,geneList,wellList,aligned_dir,barcodePanel,refseq_to_gene,well_to_index,ercc_to_index,gene_to_index, posMask,binSize,nbins,geneLevelFilter,mixtureOfWells);
+ else count.merge_parallel(nThreads,erccList,geneList,wellList,aligned_dir,barcodePanel,refseq_to_gene,well_to_index,ercc_to_index,gene_to_index, posMask,binSize,nbins,geneLevelFilter,mixtureOfWells);
 	count.print(dge_dir,sample_id,nThreads,erccList,geneList,wellList);
  return 1;		
 	 
