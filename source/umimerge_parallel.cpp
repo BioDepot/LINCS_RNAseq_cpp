@@ -820,6 +820,6 @@ int main(int argc, char *argv[]){
  if (filteredSAMfiles) count.merge_filter(nThreads,erccList,geneList,wellList,aligned_dir,barcodePanel,refseq_to_gene,well_to_index,ercc_to_index,gene_to_index, posMask,binSize,nbins,geneLevelFilter,mixtureOfWells);
  else count.merge_parallel(nThreads,erccList,geneList,wellList,aligned_dir,barcodePanel,refseq_to_gene,well_to_index,ercc_to_index,gene_to_index, posMask,binSize,nbins,geneLevelFilter,mixtureOfWells);
 	count.print(dge_dir,sample_id,nThreads,erccList,geneList,wellList);
- return 1;		
+ return 0;		
 	 
 }
