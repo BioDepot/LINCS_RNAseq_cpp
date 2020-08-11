@@ -1,0 +1,4 @@
+From alpine:3.9.2
+  RUN apk --update add zlib-dev build-base
+  COPY ./bwa_alpine_arm ./
+  RUN make

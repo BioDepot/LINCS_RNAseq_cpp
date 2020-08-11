@@ -1,0 +1,4 @@
+FROM ubuntu:18.04
+RUN apt-get update  && apt-get install -y build-essential libboost-all-dev zlib1g-dev zlib1g
+COPY ./bwa_0.7.15-r1140 ./
+RUN make

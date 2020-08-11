@@ -1,6 +1,11 @@
 CC=gcc
 CPP=g++
 LD=g++ -L /usr/local/lib
+ifndef ARM64
+ m64FLAG=-m64 
+ sse3FLAG=-msse3
+ sse4FLAG=-msse4
+endif
 ifdef STATIC 
  STATIC_FLAG = -static
 endif
@@ -8,19 +13,19 @@ ifdef DEBUG
 CFLAGS= -I./ -I./optparse -ggdb -I -Wall -fopenmp -std=c++11 ${STATIC_FLAG}
 else 
  ifdef AVX
-  CFLAGS= -I./ -I./optparse -Ofast -std=c++11 -fexpensive-optimizations -funroll-all-loops -ffast-math -finline-functions -fopenmp -m64 -mavx -msse3 -msse4 -frerun-loop-opt ${STATIC_FLAG} $(HDRS) $(DEFINES) 
+  CFLAGS= -I./ -I./optparse -Ofast -std=c++11 -fexpensive-optimizations -funroll-all-loops -ffast-math -finline-functions -fopenmp ${m64FLAG} -mavx  ${sse4FLAG} -frerun-loop-opt ${STATIC_FLAG} $(HDRS) $(DEFINES) 
  else
   ifdef SSE2
    ifdef 32Bit
     CFLAGS= -I./ -I./optparse -Ofast -std=c++11 -fexpensive-optimizations -funroll-all-loops -ffast-math -finline-functions -fopenmp -frerun-loop-opt ${STATIC_FLAG} $(HDRS) $(DEFINES)
    else
-    CFLAGS= -I./ -I./optparse -Ofast -std=c++11 -fexpensive-optimizations -funroll-all-loops -ffast-math -finline-functions -fopenmp -m64 -frerun-loop-opt ${STATIC_FLAG} $(HDRS) $(DEFINES)
+    CFLAGS= -I./ -I./optparse -Ofast -std=c++11 -fexpensive-optimizations -funroll-all-loops -ffast-math -finline-functions -fopenmp ${m64FLAG} -frerun-loop-opt ${STATIC_FLAG} $(HDRS) $(DEFINES)
    endif
   else
    ifdef 32Bit
-    CFLAGS= -I./ -I./optparse -Ofast -std=c++11 -fexpensive-optimizations -funroll-all-loops -ffast-math -finline-functions -fopenmp -msse3 -frerun-loop-opt ${STATIC_FLAG} $(HDRS) $(DEFINES)
+    CFLAGS= -I./ -I./optparse -Ofast -std=c++11 -fexpensive-optimizations -funroll-all-loops -ffast-math -finline-functions -fopenmp ${sse3FLAG} -frerun-loop-opt ${STATIC_FLAG} $(HDRS) $(DEFINES)
    else
-    CFLAGS= -I./ -I./optparse -Ofast -std=c++11 -fexpensive-optimizations -funroll-all-loops -ffast-math -finline-functions -fopenmp -m64 -msse3 -frerun-loop-opt ${STATIC_FLAG} $(HDRS) $(DEFINES)
+    CFLAGS= -I./ -I./optparse -Ofast -std=c++11 -fexpensive-optimizations -funroll-all-loops -ffast-math -finline-functions -fopenmp ${m64FLAG} ${sse3FLAG} -frerun-loop-opt ${STATIC_FLAG} $(HDRS) $(DEFINES)
    endif 
   endif
  endif

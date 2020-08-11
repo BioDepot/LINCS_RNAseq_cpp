@@ -1,0 +1,4 @@
+FROM alpine:3.9.2
+RUN apk update upgrade --no-cache && apk add build-base boost-dev zlib zlib-dev
+COPY /source /source
+RUN cd source && make clean && make all96  STATIC=1 SSE2=1 ALPINE=1 ARM64=1 &&  make clean && make all384  STATIC=1 SSE2=1 ALPINE=1 ARM64=1

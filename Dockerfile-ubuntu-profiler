@@ -1,0 +1,9 @@
+FROM biodepot/profiler:base__ubuntu_18.04
+RUN apt-get update && apt-get install -y nano bash libboost-filesystem-dev
+COPY w384/ /384/
+COPY w96/ /96/
+ADD bwa /usr/local/bin/bwa
+ADD scripts/multibwa.sh /usr/local/bin/multibwa.sh
+ADD scripts/start.sh /usr/local/bin/start.sh
+ENV NWELLS 96
+ENTRYPOINT ["entrypoint.sh", "start.sh"]

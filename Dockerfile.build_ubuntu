@@ -1,0 +1,4 @@
+FROM ubuntu:18.04
+RUN apt-get update  && apt-get install -y build-essential libboost-all-dev zlib1g-dev zlib1g
+COPY /source /source
+RUN cd source && make clean && make all96  STATIC=1 SSE2=1 &&  make clean && make all384  STATIC=1 SSE2=1
