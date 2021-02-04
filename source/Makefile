@@ -43,11 +43,12 @@ LFLAGS = -static-libstdc++
 
 default: all
 all: all96 all384 clean
-all96: clean directories96 umimerge_parallel umimerge_filter umisplit 
-all384: clean directories384 umimerge_parallel umimerge_filter umisplit
+all96: clean directories96 umimerge_parallel umimerge_filter umisplit split_pe split_se
+all384: clean directories384 umimerge_parallel umimerge_filter umisplit split_pe split_se
 
 OBJ_umisplit = umisplit.o optparse.o 
-OBJ_umisplit2 = umisplit2.o optparse.o 
+OBJ_split_pe = split_pe.o optparse.o 
+OBJ_split_se = split_se.o optparse.o 
 OBJ_umimerge_parallel = umimerge_parallel.o optparse.o 
 OBJ_umimerge_filter = umimerge_filter.o optparse.o 
 
@@ -73,7 +74,17 @@ umisplit : $(OBJ_umisplit)
 	$(LD) -o ${DIR}umisplit $(LFLAGS) $(OBJ_umisplit) $(LIBS)
 umisplit.o : umisplit.cpp 
 	$(CPP) $(CFLAGS) -c umisplit.cpp
-		
+
+split_pe : $(OBJ_split_pe)
+	$(LD) -o ${DIR}split_pe $(LFLAGS) $(OBJ_split_pe) $(LIBS)
+split_pe.o : split_pe.cpp 
+	$(CPP) $(CFLAGS) -c split_pe.cpp
+	
+split_se : $(OBJ_split_se)
+	$(LD) -o ${DIR}split_se $(LFLAGS) $(OBJ_split_se) $(LIBS)
+split_se.o : split_se.cpp 
+	$(CPP) $(CFLAGS) -c split_se.cpp
+								
 optparse.o : optparse/optparse.c
 	$(CC) $(OCFLAGS) -c optparse/optparse.c
 
@@ -85,4 +96,4 @@ cleanDeps:
 	-@rm -rf core.* 2>/dev/null || true
 
 cleanBins: 
-	-@rm  -f umimerge_parallel umisplit umimerge_filter
+	-@rm  -f umimerge_parallel umisplit umimerge_filter split_pe split_se
