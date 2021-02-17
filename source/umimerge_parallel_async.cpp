@@ -807,9 +807,9 @@ int main(int argc, char *argv[]){
 	int NTol=0;
 	 
 	#if NWELLS > 256
-	umipanel<uint32_t,uint16_t> barcodePanel(barcodes.c_str(),mismatchTol,NTol);  		
+	umipanel<uint16_t> barcodePanel(barcodes.c_str(),mismatchTol,NTol);  		
 	#else
-	umipanel<uint32_t,unsigned char> barcodePanel(barcodes.c_str(),mismatchTol,NTol);  		
+	umipanel<unsigned char> barcodePanel(barcodes.c_str(),mismatchTol,NTol);  		
 	#endif
 		
 	Counts count(nThreads,erccList.size(),geneList.size());

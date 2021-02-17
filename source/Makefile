@@ -51,6 +51,7 @@ OBJ_split_pe = split_pe.o optparse.o
 OBJ_split_se = split_se.o optparse.o 
 OBJ_umimerge_parallel = umimerge_parallel.o optparse.o 
 OBJ_umimerge_filter = umimerge_filter.o optparse.o 
+OBJ_merge_filter = merge_filter.o optparse.o 
 
 directories96: 
 	$(eval DIR+=w96/) 
@@ -68,7 +69,12 @@ umimerge_parallel.o : umimerge_parallel.cpp
 umimerge_filter : $(OBJ_umimerge_filter)
 	$(LD) -o ${DIR}umimerge_filter -static-libstdc++ $(OBJ_umimerge_filter) $(MERGELIBS)
 umimerge_filter.o : umimerge_filter.cpp 
-	$(CPP) $(CFLAGS) -c umimerge_filter.cpp			
+	$(CPP) $(CFLAGS) -c umimerge_filter.cpp		
+		
+merge_filter : $(OBJ_merge_filter)
+	$(LD) -o ${DIR}merge_filter -static-libstdc++ $(OBJ_merge_filter) $(MERGELIBS)
+merge_filter.o : merge_filter.cpp 
+	$(CPP) $(CFLAGS) -c merge_filter.cpp			
 
 umisplit : $(OBJ_umisplit)
 	$(LD) -o ${DIR}umisplit $(LFLAGS) $(OBJ_umisplit) $(LIBS)

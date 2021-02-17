@@ -15,12 +15,19 @@
 extern "C" {
  #include "optparse.h"  
 }
+ //each code is associated with at least gene name or ercc spikein ID or chrM (mitochondrial) - the sum of possible categories is the nCategories
+ //The unique encoding at the gene levels is barcodeIndex*nCategories+categoryID (geneID number if in refSeq or geneID+ERCC id if ERCC or last index if chrM
+ //To add  (optional positional information we need to know the max number of bin and the bin size - for convenience we define this using number of bits
+ //if only using coding genes or interested in unique hits (20203 coding + 17871 non-coding) then can use 16 bits
+ //Otherwise need another bit for multigene or 17 bits
+ //For titin 300K coding region or 19 bits -> 36 bits minimum for transcripts
+ //barcodes are usually 6 bit -> 42 bit minimum
 
-//simple form of merge filter without demux UMI and Dtoxs specific features - can be done with 16 bits if position is not needed
 
-template <class T> merge_filter(vector<string> &erccList ,vector<string> &geneList, unordered_map<string,string> refseq_to_gene,unordered_map<string,unsigned int>ercc_to_index,unordered_map<string,unsigned int>gene_to_index string inputFile, string outputFile){
+template <class T> void merge_filter(vector<string> &erccList, vector<string> &geneList, unordered_map<string,string> refseq_to_gene,unordered_map<string,unsigned int>ercc_to_index,unordered_map<string,unsigned int>gene_to_index, string inputFile, string outputFile){
     const T nCategories=geneList.size()+erccList.size()+1; //add1 for chrM
     const T leftBit = 1 << (sizeof(T)-1);
+    
 	//The encoding here is slightly different we use the leftmost bit to indicate whether it is multigene or not
 	//This means that 1 fewer bit is available for encoding the hashes
 	char fullLine[MAXLINESIZE];
@@ -33,6 +40,7 @@ template <class T> merge_filter(vector<string> &erccList ,vector<string> &geneLi
 	while(fgets(fullLine, MAXLINESIZE, ifp)){
 	    if(fullLine[0] == '@') continue;
 		//remove \n if it exists
+		T code;
 	    fullLine[strcspn(fullLine, "\r\n")] = 0;
 	    vector <string> items;
 	    vector <string> tempItems;
@@ -142,7 +150,7 @@ int main(int argc, char *argv[]){
  
 
  unordered_map<string,string> refseq_to_gene;
- vector<string>erccList=0, geneList=0;
+ vector<string>erccList, geneList;
  unordered_map<string,unsigned int>ercc_to_index;
  unordered_map<string,unsigned int>gene_to_index;
  vector<string> unknown_list;
@@ -152,12 +160,15 @@ int main(int argc, char *argv[]){
  
  for(int i=0;i<geneList.size();i++)
   gene_to_index[geneList[i]]=i;
- if (erccList){
-  for(int i=0;i<erccList.size();i++)
-   ercc_to_index[erccList[i]]=i;
- }
- //outputfile names
- merge_filter<class uint16_t>(erccList,geneList,barcodePanel,refseq_to_gene,ercc_to_index,gene_to_index,posMask,binSize,nbins,geneLevelFilter,inputFile,outputFile);
+ for(int i=0;i<erccList.size();i++)
+  ercc_to_index[erccList[i]]=i;
+ 
+
+ uint8_t nbits=bitsNeeded(geneList.size(),erccList.size(),umiLength,binSize,keepMultiHits);
+ if (nbits <= 16) merge_filter <uint16_t> (erccList,geneList,refseq_to_gene,ercc_to_index,gene_to_index,inputFile,outputFile);
+ else if (nbits <= 32 ) merge_filter <uint32_t> (erccList,geneList,refseq_to_gene,ercc_to_index,gene_to_index,inputFile,outputFile);
+ else merge_filter <uint64_t> (erccList,geneList,refseq_to_gene,ercc_to_index,gene_to_index,inputFile,outputFile);
+ 
  return 1;		
 	 
 }

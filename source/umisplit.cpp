@@ -13,13 +13,13 @@ extern "C" {
 bool checkNames(char *line1,char *line2);
 bool Ncheck(const char *seq, const int size);
 bool getLines(gzFile fp1, gzFile fp2, char *bufferR1[], char *bufferR2, bool *mismatch);
-bool closeFile(FILE *fp,gzFile gzfp, string filename,bool writeFile);
-bool writeFilename(string filename,string suffix);
+bool closeFile(FILE *fp,gzFile gzfp, std::string filename,bool writeFile);
+bool writeFilename(std::string filename,std::string suffix);
 
 
 #define R1_LENGTH 16 //default UMI length
 
-string errmsg="umisplit h?vftd:m:N:o:b:l:q:\n-h -? (display this message)\n-v (Verbose mode)\n-f (filter and discard reads with ambiguous UMI and barcode (default is to keep))\n-z Compress the output as gzip files\n-s The maximum size of the split file in KB\n\n-l <Length of UMI (16):\n-t <number of threads(1)>\n-q <minimum quality of UMI base pair before changed to N (10)>-b <barcode file>\n-m <maximum number of mismatches tolerated in barcode (0)>\n-c <the file to output the umicounts to - default is UMIcounts.bin in the output directory>\n-N <maximum number of ambiguous base pairs tolerated in barcode (0)>\n-o <Output Directory>\n<R1file.1> <R2file.1>..<R1file.N> <R2file.N>\n\nExample:\numisplit -b References/Broad_UMI/barcodes_trugrade_96_set4.dat -o Aligns sample1_R1.fastq.gz sample1_R2.fastq.gz sample2_R1.fastq.gz sample2_R2.fastq.gz\n";
+std::string errmsg="umisplit h?vftd:m:N:o:b:l:q:\n-h -? (display this message)\n-v (Verbose mode)\n-f (filter and discard reads with ambiguous UMI and barcode (default is to keep))\n-z Compress the output as gzip files\n-s The maximum size of the split file in KB\n\n-l <Length of UMI (16):\n-t <number of threads(1)>\n-q <minimum quality of UMI base pair before changed to N (10)>-b <barcode file>\n-m <maximum number of mismatches tolerated in barcode (0)>\n-c <the file to output the umicounts to - default is UMIcounts.bin in the output directory>\n-N <maximum number of ambiguous base pairs tolerated in barcode (0)>\n-o <Output Directory>\n<R1file.1> <R2file.1>..<R1file.N> <R2file.N>\n\nExample:\numisplit -b References/Broad_UMI/barcodes_trugrade_96_set4.dat -o Aligns sample1_R1.fastq.gz sample1_R2.fastq.gz sample2_R1.fastq.gz sample2_R2.fastq.gz\n";
   
 int main(int argc, char *argv[]){
     bool compressFlag=0,writeDoneFiles=0;
@@ -29,15 +29,15 @@ int main(int argc, char *argv[]){
     unsigned int barcodeSize=0;
     int adjustedQ=minQual+33;
     char *arg=0,*outputFileName=0;
-    string barcodeFileName,countsFile="";
+    std::string barcodeFileName,countsFile="";
     struct optparse options;
     int opt;
     int mismatchTol=0,NTol=0;
     optparse_init(&options, argv);
     int nThreads=1;
     int filter=0;
-    string outputDir="";
-    vector<string> inputFiles;
+    std::string outputDir="";
+    std::vector<std::string> inputFiles;
  
  //parse flags
     while ((opt = optparse(&options, "h?vdft:zs:m:N:o:b:l:q:c:")) != -1) {
@@ -55,13 +55,13 @@ int main(int argc, char *argv[]){
                 compressFlag=1;
             break;
             case 'c':
-                countsFile=string(options.optarg);
+                countsFile=std::string(options.optarg);
             break; 
             case 's':
                 maxSizeKB=std::stoull(options.optarg);
             break;     
 			case 'o':
-                outputDir=string(options.optarg);
+                outputDir=std::string(options.optarg);
 			break;
             case 'm':
                 mismatchTol=atoi(options.optarg);
@@ -99,7 +99,7 @@ int main(int argc, char *argv[]){
     //parse file arguments
     //these will be R1 followed by R2 arguments
     while ((arg = optparse_arg(&options))){
-        inputFiles.push_back(string(arg));
+        inputFiles.push_back(std::string(arg));
 	}
 	if(verbose){
 		//print out the parameters
@@ -127,13 +127,13 @@ int main(int argc, char *argv[]){
     fs::create_directory(fs::system_complete(outputDir));
     
     #if NWELLS > 256
-        umipanel<uint32_t,uint16_t> **barcodePanel=new umipanel<uint32_t,uint16_tr>*[nThreads];
+        umipanel<uint16_t> **barcodePanel=new umipanel<uint16_tr>*[nThreads];
         for(int i=0;i<nThreads;i++)
-            barcodePanel[i]=new umipanel<uint32_t,uint16_t> (barcodeFileName,mismatchTol,NTol);
+            barcodePanel[i]=new umipanel<uint16_t> (barcodeFileName,mismatchTol,NTol);
 	#else
-        umipanel<uint32_t,unsigned char> **barcodePanel=new umipanel<uint32_t,unsigned char>*[nThreads];
+        umipanel<unsigned char> **barcodePanel=new umipanel<unsigned char>*[nThreads];
         for(int i=0;i<nThreads;i++)
-            barcodePanel[i]=new umipanel<uint32_t,unsigned char> (barcodeFileName,mismatchTol,NTol);
+            barcodePanel[i]=new umipanel<unsigned char> (barcodeFileName,mismatchTol,NTol);
 	#endif
 	
 	//create directories for each well
@@ -165,7 +165,7 @@ int main(int argc, char *argv[]){
   
         fs::path R1(inputFiles[i]);
         fs::path R2(inputFiles[i+1]);
-        string R1stem,R2stem;
+        std::string R1stem,R2stem;
         R1=R1.stem();
         R2=R2.stem();
         while (R1.extension().string() == ".gz" || R1.extension().string() == ".fastq" || R1.extension().string() == ".fq")   
@@ -175,7 +175,7 @@ int main(int argc, char *argv[]){
         R1stem=R1.stem().string();
         R2stem=R2.stem().string();
         FILE *ofp,*ofps[NWELLS+1];
-        vector<string> filenames(NWELLS+1);
+        std::vector<std::string> filenames(NWELLS+1);
         gzFile ofpgz,ofpsgz[NWELLS+1];
         uint64_t fileSizes[NWELLS+1];
         uint16_t numberofFiles[NWELLS+1];
@@ -186,7 +186,7 @@ int main(int argc, char *argv[]){
 			//zeroing is necessary - we use the zero value in the file pointer instead of passing the compress flag to know which type to use for opening/closing
 			ofps[j]=0;
 			ofpsgz[j]=0;
-			string file;
+			std::string file;
 			if(!filter && !j){
 				file=outputDir+"/X"+"/"+R1stem+"R2_"+"X_"+std::to_string(numberofFiles[0])+".fq";
 				numberofFiles[0]++;
@@ -239,7 +239,7 @@ int main(int argc, char *argv[]){
             const unsigned int barcodeIndex=barcodePanel[tid]->bestMatch(linesR1[1]);
             if(filter && !barcodeIndex)continue;
 			//skip if ambiguous barcode and get unique barcode index from sequence
-			string umiBarcode(linesR1[1]+wellSequenceSize,UMILength-wellSequenceSize);
+			std::string umiBarcode(linesR1[1]+wellSequenceSize,UMILength-wellSequenceSize);
 			unsigned int  umiBarcodeIndex=0;
 			if (filter && ambigCheck(umiBarcode,umiBarcodeIndex)) continue;
 			ofp=0;ofpgz=0;
@@ -250,7 +250,7 @@ int main(int argc, char *argv[]){
                 uint16_t lineBytes=strlen(linesR2)+strlen(linesR1[0])+UMILength+7;
                 if (barcodeIndex && lineBytes+fileSizes[barcodeIndex] > maxSize){
 					closeFile(ofp,ofpgz,filenames[barcodeIndex],writeDoneFiles);
-					string file =outputDir+"/"+barcodePanel[tid]->wells[barcodeIndex-1]+"/"+R1stem+"R2_"+barcodePanel[tid]->wells[barcodeIndex-1]+"_"+std::to_string(numberofFiles[barcodeIndex])+".fq";
+					std::string file =outputDir+"/"+barcodePanel[tid]->wells[barcodeIndex-1]+"/"+R1stem+"R2_"+barcodePanel[tid]->wells[barcodeIndex-1]+"_"+std::to_string(numberofFiles[barcodeIndex])+".fq";
 					if (compressFlag){
 					 file=file+".gz";
 					 ofpsgz[barcodeIndex]=gzopen(file.c_str(),"wb");	
@@ -292,8 +292,8 @@ int main(int argc, char *argv[]){
 		for(int j=1;j<NWELLS+1;j++){
 			closeFile(ofps[j],ofpsgz[j],filenames[j],writeDoneFiles);
 		}
-		string outputFileR1=outputDir+"/"+R1stem;
-		string outputFileR2=outputDir+"/"+R2stem;
+		std::string outputFileR1=outputDir+"/"+R1stem;
+		std::string outputFileR2=outputDir+"/"+R2stem;
 		closeFile(0,fp1,outputFileR1,writeDoneFiles);
 		closeFile(0,fp2,outputFileR2,writeDoneFiles);		
 	}
@@ -337,15 +337,15 @@ bool Ncheck(const char *seq, const int size){
 	 if(seq[i] == 'N')return 1;
 	return 0;
 }
-bool closeFile(FILE *fp,gzFile gzfp, string filename,bool writeFile){
+bool closeFile(FILE *fp,gzFile gzfp, std::string filename,bool writeFile){
 	if (fp) fclose(fp);
 	else if (gzfp) gzclose(gzfp);
 	else return 1;
 	if (writeFile) writeFilename(filename,"done");
 	return 0;	
 }
-bool writeFilename(string filename,string suffix){
-	string outputFilename=filename+"."+suffix;
+bool writeFilename(std::string filename,std::string suffix){
+	std::string outputFilename=filename+"."+suffix;
 	FILE *fp = fopen(outputFilename.c_str(),"w");
 	if (fp){
 		fprintf(fp,"%s",filename.c_str());

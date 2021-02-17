@@ -1,10 +1,13 @@
 #include <string>      
 #include <sstream>
 #include <fstream>
+#include <iostream>
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <stdexcept>
+#include <glob.h>
 
 //default definitions - can be overridden by passing variables to make
 
@@ -23,53 +26,60 @@
 #define  UMISIZE 10
 #define  NUMIS 1048576 //4**10 - for 10 base UMI
 #define SAMLINESIZE 1024
-using namespace std;
-unsigned int hashCode4(string &sequence);
-bool ambigCheck(string &sequence,unsigned int &code);
-string decodeId(unsigned int id, int size);
-bool polyACheck(string &sequence);
+#define MAXLINESIZE 1024
+//using namespace std;
+uint32_t hashCode4(std::string &sequence);
+bool ambigCheck(std::string &sequence,uint32_t &code);
+std::string decodeId(uint32_t id, int size);
+bool polyACheck(std::string &sequence);
 
-void readRefseq(string filename, unordered_map<string,string> &refseq_to_gene,vector<string> &geneList);
-string readWells(string filename, unordered_map<string,unsigned int> &well_to_index,vector<string> &wellList);
-void readERCC(string filename, vector<string> &erccList);
-void splitStr(char *cstr,const char *delim, vector<string> &items);
-void splitStr(string str,const char *delim, vector<string> &items);
-string splitStrIndex(string str,const char *delim, int index);
-bool multiGeneHit(vector<string> &best_list, string gene, unordered_map<string,string> &refseq_to_gene);
-unsigned int sumCounts(unsigned int *counts,unsigned int size1);
-unsigned int sumCounts(unsigned int **counts,unsigned int size1, unsigned int size2);
-unsigned int sumCountsi(unsigned int **counts,unsigned int i, unsigned int size2);
+void readRefseq(std::string filename, std::unordered_map<std::string,std::string> &refseqToGene,std::vector<std::string> &geneList);
+std::string readWells(std::string filename, std::unordered_map<std::string,uint32_t> &wellToIndex,std::vector<std::string> &wellList);
+void readERCC(std::string filename, std::vector<std::string> &erccList);
+void readAlignedFiles(std::string aligned_dir, std::vector<std::string> &alignedFiles, std::string suffix, std::string well, bool mixtureOfWells);
+void splitStr(char *cstr,const char *delim, std::vector<std::string> &items);
+void splitStr(std::string str,const char *delim, std::vector<std::string> &items);
+std::string splitStrIndex(std::string str,const char *delim, int index);
+bool multiGeneHit(std::vector<std::string> &best_list, std::string gene, std::unordered_map<std::string,std::string> &refseqToGene);
 
-template <class T1, class T2>class umipanel{
-	//T1 is used to choose between 32 and 64 bit uint
-	//T2 is used to choose between unsigned char for 96 weill and uint16_t for 384 wells
+uint8_t minBitsToRepresent(uint32_t number);
+uint8_t bitsNeeded(uint32_t ncategories, uint8_t umiSize, uint8_t nbinbits, bool markMultiHits);
+bool checkMultiHit(std::string alignedId, uint32_t pos, uint8_t nbinbits, uint8_t binsizebits, uint32_t posMask, std::string matchString, std::unordered_map<std::string,std::string> &refseqToGene);
+
+template <class T> T encodeMapping(uint32_t category, uint32_t umiIndex, uint32_t pos,uint8_t nbinbits, uint8_t binsizebits, uint8_t umibits, uint32_t posMask, T leftBitMask, bool multiHit, bool markMultiHits);
+//no umi version 
+
+template <class T> bool samToCategory(T &category, uint32_t &umiIndex, uint32_t &pos, bool &multiHit, std::string &alignedIdString, char *fullLine, uint8_t barcodeSize,uint8_t umiSize, std::unordered_map<std::string,std::string> refseqToGene,std::unordered_map<std::string,uint32_t>erccToIndex,std::unordered_map<std::string,uint32_t>geneToIndex, uint32_t posMask, uint8_t binsizebits, uint8_t nbinbits, bool multiHits, bool properReads, bool &unassigned, bool &unknown);
+
+template <class T>class umipanel{
+	//T is used to choose between unsigned char for 96 weill and uint16_t for 384 wells
 	public:
-	 T2 *hash;  //for barcode
-	 vector<string> sequences; //contains panel of barcodes 
-	 vector<string> wells;     //contains well of barcodes 
- 	string panelID;
-	 unsigned int nBarcodes=0;
-	 unsigned int barcodeSize=0;
-	 unsigned int hashSize=0;
-	 unsigned int mismatchTol; //how many basepairs difference for matching panel
-	 unsigned int NTol; //how many basepairs in query sequence
+	 T *hash;  //for barcode
+	 std::vector<std::string> sequences; //contains panel of barcodes 
+	 std::vector<std::string> wells;     //contains well of barcodes 
+ 	std::string panelID;
+	 uint32_t nBarcodes=0;
+	 uint32_t barcodeSize=0;
+	 uint32_t hashSize=0;
+	 uint32_t mismatchTol; //how many basepairs difference for matching panel
+	 uint32_t NTol; //how many basepairs in query sequence
 	 
 	 umipanel(){
 			nBarcodes=0;
 			barcodeSize=0;
 		}	
- 	umipanel (string fileName,int _mismatchTol,int _NTol){
+ 	umipanel (std::string fileName,int _mismatchTol,int _NTol){
 			//read in panel
 			mismatchTol=_mismatchTol;
 			NTol=_NTol;
- 		string line,name,well,sequence;
-   ifstream inFile(fileName,ifstream::in);
+ 		std::string line,name,well,sequence;
+   std::ifstream inFile(fileName,std::ifstream::in);
    if(!inFile){
 				fprintf(stderr,"unable to read in barcode file %s\n",fileName.c_str());
 				exit(EXIT_FAILURE);
 			}
    while(getline(inFile,line)){
-    istringstream iss(line);
+    std::istringstream iss(line);
     iss >> panelID; iss >> well;iss >> sequence;
     wells.push_back(well);
     sequences.push_back(sequence);
@@ -81,8 +91,8 @@ template <class T1, class T2>class umipanel{
    for(int i=1;i<barcodeSize;i++){
 				hashSize*=5;
 			}
-   hash=new T2[hashSize];
-			memset(hash,0,hashSize*sizeof(T2));
+   hash=new T[hashSize];
+			memset(hash,0,hashSize*sizeof(T));
    fillHash();
 	 }
 	 ~umipanel(){
@@ -113,11 +123,11 @@ template <class T1, class T2>class umipanel{
 			delete[] seq;	
 			delete[] indices;	
 		}
-		unsigned int bestMatch(const char *query){
-			return (unsigned int) hash[hashCode(query)];
+		uint32_t bestMatch(const char *query){
+			return (uint32_t) hash[hashCode(query)];
 		}		 
-		unsigned int hashCode(const char *sequence){
-			unsigned int code =0;
+		uint32_t hashCode(const char *sequence){
+			uint32_t code =0;
 			int k=1;
 			for (int i=0;i<barcodeSize;i++){
 				switch (sequence[i]){
@@ -138,14 +148,14 @@ template <class T1, class T2>class umipanel{
 			}
 			return code;	
 		}
-	unsigned int bestMatch (vector<string> &panelSeqs, char *query,int nPanelSeqs,int mismatchTol,int NTol){
+	uint32_t bestMatch (std::vector<std::string> &panelSeqs, char *query,int nPanelSeqs,int mismatchTol,int NTol){
 		//when comparing a single query with Ns we don't have to take into account the N's since
 		//they give the same signal regardless of the panelSeq
 		//we will initialize it anyway to get a meaningfull absolute distance
 		int bestIndex=0,nBest=1;
 		int maxDist=0;
 		int nNs=0;
-  for (unsigned int i = 0; i < barcodeSize; i++){
+  for (uint32_t i = 0; i < barcodeSize; i++){
 	 	if(query[i] != 'N' && panelSeqs[0][i] !=query[i]){
     maxDist++;
 	 	}
@@ -154,7 +164,7 @@ template <class T1, class T2>class umipanel{
 	 }
 		for(int i=1;i<nPanelSeqs ;i++){
    int dist=0;
-   for (unsigned int j = 0; j < barcodeSize && dist<=maxDist; j++){
+   for (uint32_t j = 0; j < barcodeSize && dist<=maxDist; j++){
 				if(query[j] != 'N' && panelSeqs[i][j] !=query[j]){
      dist++;
 				}	
@@ -177,12 +187,12 @@ template <class T1, class T2>class umipanel{
 };	
 class MapPosition{
 	public:
-	vector <string> gene; 
-	vector <int> position;
+	std::vector <std::string> gene; 
+	std::vector <int> position;
 	MapPosition(){
 		clear();
 	}	
-	bool insert(string _gene,int _position){
+	bool insert(std::string _gene,int _position){
 		for(int i=0;i<gene.size();i++){
 	  if(_gene==gene[i] && _position==position[i]){
 				return 0;
@@ -196,15 +206,15 @@ class MapPosition{
 	 gene.clear();
 	 position.clear();
  }
- bool multiGeneHit(string _gene, unordered_map<string,string> &refseq_to_gene){
+ bool multiGeneHit(std::string _gene, std::unordered_map<std::string,std::string> &refseqToGene){
 	 for(int i=1;i<gene.size();i++){
-	  if(!refseq_to_gene.count(gene[i]) || _gene != refseq_to_gene[gene[i]])return 1;
+	  if(!refseqToGene.count(gene[i]) || _gene != refseqToGene[gene[i]])return 1;
 		}
 	 return 0; 
  }	 	
 };
-unsigned int hashCode4(string &sequence){
-		unsigned int code =0;
+uint32_t hashCode4(std::string &sequence){
+		uint32_t code =0;
 		int k=1;
 		for (int i=0;i<sequence.size();i++){
 		switch (sequence[i]){
@@ -222,7 +232,7 @@ unsigned int hashCode4(string &sequence){
 			}
 	return code;	
 }	
-bool ambigCheck(string &sequence,unsigned int &code){	
+bool ambigCheck(std::string &sequence,uint32_t &code){	
 	int k=1;
 	code=0;
  for(int i=0;i<sequence.size();i++){
@@ -243,32 +253,33 @@ bool ambigCheck(string &sequence,unsigned int &code){
 	}
 	return 0;
 }
-string decodeId(unsigned int id, int size){
- string sequence;
+std::string decodeId(uint32_t id, int size){
+ std::string sequence;
  char bp[4]={'A','C','G','T'};
  for(int i=0;i<size;i++){
-	 unsigned int index= (id >> 2*i) & 0x03;
+	 uint32_t index= (id >> 2*i) & 0x03;
   sequence.push_back(bp[index]);
 	}
 	return sequence;
 	
 }
-bool multiGeneHit(vector<string> &best_list, string gene, unordered_map<string,string> &refseq_to_gene){
+bool multiGeneHit(std::vector<std::string> &best_list, std::string gene, std::unordered_map<std::string,std::string> &refseqToGene){
 	//want to check that at least on of the alternative genes in the list is not the same as the top assignment 
-	for(int i=0;i<best_list.size();i++)
-	 if(!refseq_to_gene.count(best_list[i]) || gene != refseq_to_gene[best_list[i]])return 1;
+	for (int i=0;i<best_list.size();i++)
+		if(!refseqToGene.count(best_list[i]) || gene != refseqToGene[best_list[i]])return 1;
 	return 0; 
-}	
-void splitStr(char *cstr,const char *delim, vector<string> &items){
+}
+
+void splitStr(char *cstr,const char *delim, std::vector<std::string> &items){
 	char *save;
 	char *p=strtok_r(cstr,delim,&save);
 	items.resize(0);		
 	while(p){
-		items.push_back(string(p));
+		items.push_back(std::string(p));
 		p=strtok_r(0,delim,&save);
 	}	
 }
-void splitStr(string str,const char *delim, vector<string> &items){
+void splitStr(std::string str,const char *delim, std::vector<std::string> &items){
 	//have to make a copy of str in this case
 	if(str.size()<1024){
 		char cstr[1024];
@@ -277,7 +288,7 @@ void splitStr(string str,const char *delim, vector<string> &items){
 	char *p=strtok_r(cstr,delim,&save);
 	 items.resize(0);
 	 while(p){
-	 	items.push_back(string(p));
+	 	items.push_back(std::string(p));
 		 p=strtok_r(0,delim,&save);
 	 }
 	}
@@ -288,14 +299,14 @@ void splitStr(string str,const char *delim, vector<string> &items){
 	 char *p=strtok_r(cstr,delim,&save);
 	 items.resize(0);
 	 while(p){
-	 	items.push_back(string(p));
+	 	items.push_back(std::string(p));
 	 	p=strtok_r(0,delim,&save);
 	 }
 	 free(cstr);	
 	}	 	
 }
-string splitStrIndex(string str,const char *delim, int index){
-	vector <string> items;
+std::string splitStrIndex(std::string str,const char *delim, int index){
+	std::vector <std::string> items;
 	splitStr(str,delim,items);
 	if (!items.size()) return "";
 	if (index < 0 ){
@@ -305,22 +316,22 @@ string splitStrIndex(string str,const char *delim, int index){
  return "";
 }
 
-string readWells(string filename, unordered_map<string,unsigned int> &well_to_index,vector<string> &wellList){
+std::string readWells(std::string filename, std::unordered_map<std::string,uint32_t> &wellToIndex,std::vector<std::string> &wellList){
 	FILE *fp=fopen(filename.c_str(),"r");
 	if(!fp)exit(EXIT_FAILURE);
 	char line[64],id[64],well[64],seq[64];
-	unsigned int k=0;
+	uint32_t k=0;
 	while(fgets(line,sizeof(line),fp)){
 	 sscanf(line,"%s %s %s",id,well,seq);
-	 wellList.push_back(string(id)+"_"+string(well));
-	 well_to_index[string(well)]=k;
-	 well_to_index[string(id)+"_"+string(well)]=k++;
+	 wellList.push_back(std::string(id)+"_"+std::string(well));
+	 wellToIndex[std::string(well)]=k;
+	 wellToIndex[std::string(id)+"_"+std::string(well)]=k++;
 	}
 	fclose(fp);
-	return string(id);	
+	return std::string(id);	
 }
 	
-void readERCC(string filename, vector<string> &erccList){
+void readERCC(std::string filename, std::vector<std::string> &erccList){
 	FILE *fp=fopen(filename.c_str(),"r");
 	if(!fp)exit(EXIT_FAILURE);
 	char line[64]; //max line width is 50
@@ -328,32 +339,32 @@ void readERCC(string filename, vector<string> &erccList){
 	 if(line[0] == '>'){ //fasta file - just want comment line without carat
 			char temp[64];
 			sscanf(line+1,"%s",temp);
-	  erccList.push_back(string(temp));
+	  erccList.push_back(std::string(temp));
 		}
 	}
 	fclose(fp);	
 }
 
-void readRefseq(string filename, unordered_map<string,string> &refseq_to_gene, vector<string> &geneList){
+void readRefseq(std::string filename, std::unordered_map<std::string,std::string> &refseqToGene, std::vector<std::string> &geneList){
 	FILE *fp=fopen(filename.c_str(),"r");
 	if(!fp)exit(EXIT_FAILURE);
 	char line[1024]; //max line width is 843
 	char gene[256],refseq[1024];
 	while(fgets(line,sizeof(line),fp)){
 	 sscanf(line,"%s %s",gene,refseq);
-	 geneList.push_back(string(gene));
+	 geneList.push_back(std::string(gene));
 	 //replace first comma with 0
 	 char *save;
 	 char *p=strtok_r(refseq,",",&save);
 	 while(p){
-	  refseq_to_gene[string(p)]=string(gene);
+	  refseqToGene[std::string(p)]=std::string(gene);
 	  p=strtok_r(0,",",&save);
 		}
 	}
 	fclose(fp);	
 }	
 
-bool polyACheck(string &sequence){
+bool polyACheck(std::string &sequence){
 	if(sequence.size() < 20) return 0;
 	const char *c=sequence.c_str()+sequence.size()-20;
 	while(*c){
@@ -362,35 +373,15 @@ bool polyACheck(string &sequence){
 	}
 	return 1;	
 }
-unsigned int sumCounts(unsigned int *counts,unsigned int size1){
-	unsigned int sum=0;
-	for(int i=0;i<size1;i++)
-	  sum+=counts[i];
-	return sum;
-}	
-		
-unsigned int sumCounts(unsigned int **counts,unsigned int size1, unsigned int size2){
-	unsigned int sum=0;
-	for(int i=0;i<size1;i++)
-	 for(int j=0;j<size2;j++)
-	  sum+=counts[i][j];
-	return sum;
-}
-		
-unsigned int sumCountsi(unsigned int **counts,unsigned int i, unsigned int size2){
-	unsigned int sum=0;
-	for(int j=0;j<size2;j++)
-	 sum+=counts[i][j];
-	return sum;
-}
-bool readCountsFile(const char *fileName, unsigned int *counts){
+
+bool readCountsFile(const char *fileName, uint32_t *counts){
 	FILE *fp =fopen(fileName,"r");
 	fprintf(stderr,"opening %s\n",fileName);
 	if(!fp){
 		fprintf(stderr,"error opening %s\n",fileName);
 		return(0);
 	}
-	if(!fread(counts,sizeof(unsigned int)*NUMIS,1,fp)){
+	if(!fread(counts,sizeof(uint32_t)*NUMIS,1,fp)){
 		fprintf(stderr,"error reading %s\n",fileName);
 		fclose(fp);
 		return 0;
@@ -409,3 +400,137 @@ bool filterSAMoutput(){
  }
  return 1;
 }
+uint8_t minBitsToRepresent(uint32_t number){
+    uint8_t nbits=0;
+    while (number > 0){
+	 nbits++;
+	 number =  number >> 1;	
+	}
+	return nbits;		
+}
+uint8_t bitsNeeded(uint32_t ncategories, uint8_t umiSize, uint8_t nbinbits, bool markMultiHits){
+    return minBitsToRepresent(ncategories) + nbinbits + markMultiHits + 2*umiSize;
+}
+
+bool checkMultiHit(std::string alignedId, uint32_t pos, uint8_t nbinbits, uint8_t binsizebits, uint32_t posMask, std::string matchString, std::unordered_map<std::string,std::string> &refseqToGene){
+	std::vector<std::string> split_loc;
+	std::string best_hits_loc = splitStrIndex(matchString,":",-1);
+	splitStr(best_hits_loc,";",split_loc);
+	//with ERCC and chrM we check the alignedId directly, otherwise we first transform to refSeq in case we have two names mapping to same id
+	if (alignedId.substr(0,4) == "ERCC" || alignedId.substr(0,4) == "chrM"){
+		for (auto iter = split_loc.begin(); iter != split_loc.end(); ++iter){
+			std::string geneString=splitStrIndex(*iter,",",0);
+			if (geneString != alignedId) return 1;
+		}
+	}
+	else{
+		std::string gene = refseqToGene[alignedId];
+		for (auto iter = split_loc.begin(); iter != split_loc.end(); ++iter){
+			std::string geneString=splitStrIndex(*iter,",",0);
+			if(!refseqToGene.count(geneString) || gene != refseqToGene[geneString]) return 1;
+		}
+	}
+	//if we made it through to here then we check that the positions are the same
+	if (nbinbits > 0 && nbinbits > binsizebits){
+		uint32_t bin = pos >> binsizebits & posMask;
+		for (auto iter = split_loc.begin(); iter != split_loc.end(); ++iter){
+			std::string posString=splitStrIndex(*iter,",",1);
+			if (posString=="") return 1;
+			try {
+				int splitPos = std::stoi(posString);
+				if (splitPos == 0) return 1;
+				if (splitPos > 0){
+					uint32_t splitBin = (uint) splitPos >> binsizebits & posMask;
+					if (splitBin != bin) return 1;
+				}				
+			}
+			catch (...){
+			    return 1;	
+			}
+
+		}		
+	}
+	return 0;
+}
+	//probably could do all of these templates using lambdas 
+	//no longer uses modulo - round up to nearest bit for encoding and decoding genes which might waste a bit but saves computation
+	
+	//no umi version 
+
+void readAlignedFiles(std::string aligned_dir, std::vector<std::string> &alignedFiles, std::string suffix, std::string well, bool mixtureOfWells){
+ 	 glob_t glob_result;
+	 std::string globString=aligned_dir+"/"+well+"/"+"*." + suffix;
+	 if (mixtureOfWells) globString=aligned_dir+"/*_"+well+"_"+"*."+suffix;
+	 glob(globString.c_str(),GLOB_TILDE,NULL,&glob_result);
+	 fprintf(stderr,"The glob string is %s\n",globString.c_str());
+	 for(int j=0; j<glob_result.gl_pathc; j++){
+		alignedFiles.push_back(std::string(glob_result.gl_pathv[j]));
+	 }	
+}
+template <class T> T encodeMapping(uint32_t category, uint32_t umiIndex, uint32_t pos,uint8_t nbinbits, uint8_t binsizebits, uint8_t umibits, uint32_t posMask, T leftBitMask, bool multiHit, bool markMultiHits){
+	T code=category;
+	if (umibits) code=(code << umibits) | umiIndex;
+	if(nbinbits){
+		T positionCode=(pos >> binsizebits) & posMask; 
+		code = (code << nbinbits) | positionCode;
+	}	
+	if (multiHit && markMultiHits) code = code | leftBitMask;
+	return code;
+}
+
+template <class T> bool samToCategory(T &category, uint32_t &umiIndex, uint32_t &pos, bool &multiHit, std::string &alignedId, char *fullLine, uint8_t barcodeSize,uint8_t umiSize, std::unordered_map<std::string,std::string> refseqToGene,std::unordered_map<std::string,uint32_t>erccToIndex,std::unordered_map<std::string,uint32_t>geneToIndex, uint32_t posMask, uint8_t binsizebits, uint8_t nbinbits, bool multiHits, bool properReads, bool &unassigned, bool &unknown){
+        const uint32_t geneListSize = geneToIndex.size();
+        const uint32_t erccListSize = erccToIndex.size();
+        //add 1 for chrM
+        const uint32_t ncategories = geneListSize + erccListSize +1;
+        unassigned=1;
+        unknown=0;
+		if(fullLine[0] == '@') return 0;
+		//remove \n if it exists
+		fullLine[strcspn(fullLine, "\r\n")] = 0;
+		T code=0;
+		std::vector <std::string> items;
+		std::vector <std::string> tempItems;
+		bool printFlag=0;
+		splitStr(fullLine," \t",items);
+		splitStr(items[0],":",tempItems);
+		std::string fullBarcode,barcode;
+		//umis then check for ambiguity in barcode
+		if (barcodeSize || umiSize){
+			//then we check for barcodes which are encoded here
+			std::string fullBarcode=tempItems[tempItems.size()-1];
+			if (umiSize){
+				barcode=fullBarcode.substr(barcodeSize,umiSize);
+			    //skip if ambiguous barcode and get unique barcode index from sequence
+				if(ambigCheck(barcode,umiIndex)) return 0;
+			}
+		}
+		//if it is not barcoded/UMI and properReads is set that means we are looking at paired ends and will only count matched reads
+		else if (properReads){
+			uint32_t flag=(uint32_t)stoi(items[0]);
+			uint32_t mask=2;
+			if (!(flag & mask)) return 0;
+		}
+		alignedId=std::string(items[2]);
+		pos = stoi(items[3]);
+		if(alignedId == "*") return 0;
+		std::string read=items[9];
+		int edit_dist=stoi(splitStrIndex(items[12],":",-1));
+		int best_hits=stoi(splitStrIndex(items[13],":",-1));
+		//the original script does skip this read if any of these are true
+		if(edit_dist > MAX_EDIT_DISTANCE || best_hits > MAX_BEST || polyACheck(read)) return 0;
+		multiHit=0;
+		if (best_hits > 1 && items.size() > 19){
+			multiHit = checkMultiHit(alignedId, pos, nbinbits, binsizebits, posMask, items[19],refseqToGene);
+		}
+		if (alignedId.substr(0,4) == "ERCC") category= geneListSize + erccToIndex[alignedId];
+		else if (alignedId.substr(0,4) == "chrM") category = ncategories-1;
+		else if (refseqToGene.count(alignedId)) category = geneToIndex[refseqToGene[alignedId]];
+		else{
+			unknown=1;
+			return 1;
+		}
+		return 1;
+}
+
+
