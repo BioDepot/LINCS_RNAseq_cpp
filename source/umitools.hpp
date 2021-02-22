@@ -34,22 +34,23 @@ std::string decodeId(uint32_t id, int size);
 bool polyACheck(std::string &sequence);
 
 void readRefseq(std::string filename, std::unordered_map<std::string,std::string> &refseqToGene,std::vector<std::string> &geneList);
-std::string readWells(std::string filename, std::unordered_map<std::string,uint32_t> &wellToIndex,std::vector<std::string> &wellList);
+std::string  readWells(std::string filename, std::unordered_map<std::string,uint32_t> &wellToIndex, std::vector<std::string> &wellList, std::vector<std::string> &shortWellIds);
+std::string  readWells(std::string filename, std::unordered_map<std::string,uint32_t> &wellToIndex, std::vector<std::string> &wellList);
 void readERCC(std::string filename, std::vector<std::string> &erccList);
 void readAlignedFiles(std::string aligned_dir, std::vector<std::string> &alignedFiles, std::string suffix, std::string well, bool mixtureOfWells);
 void splitStr(char *cstr,const char *delim, std::vector<std::string> &items);
 void splitStr(std::string str,const char *delim, std::vector<std::string> &items);
 std::string splitStrIndex(std::string str,const char *delim, int index);
-bool multiGeneHit(std::vector<std::string> &best_list, std::string gene, std::unordered_map<std::string,std::string> &refseqToGene);
-
+bool multiGeneHit(std::vector<std::string> &best_list, std::string gene, const std::unordered_map<std::string,std::string> &refseqToGene);
+void bitPrint(FILE *fp, uint64_t value,uint8_t valuebits);
 uint8_t minBitsToRepresent(uint32_t number);
 uint8_t bitsNeeded(uint32_t ncategories, uint8_t umiSize, uint8_t nbinbits, bool markMultiHits);
-bool checkMultiHit(std::string alignedId, uint32_t pos, uint8_t nbinbits, uint8_t binsizebits, uint32_t posMask, std::string matchString, std::unordered_map<std::string,std::string> &refseqToGene);
+bool checkMultiHit(std::string alignedId, uint32_t pos, uint8_t nbinbits, uint8_t binsizebits, uint32_t posMask, std::string matchString, std::unordered_map<std::string,std::string> &refseqToGene, bool sameGeneHitNotMultiHit);
 
 template <class T> T encodeMapping(uint32_t category, uint32_t umiIndex, uint32_t pos,uint8_t nbinbits, uint8_t binsizebits, uint8_t umibits, uint32_t posMask, T leftBitMask, bool multiHit, bool markMultiHits);
 //no umi version 
 
-template <class T> bool samToCategory(T &category, uint32_t &umiIndex, uint32_t &pos, bool &multiHit, std::string &alignedIdString, char *fullLine, uint8_t barcodeSize,uint8_t umiSize, std::unordered_map<std::string,std::string> refseqToGene,std::unordered_map<std::string,uint32_t>erccToIndex,std::unordered_map<std::string,uint32_t>geneToIndex, uint32_t posMask, uint8_t binsizebits, uint8_t nbinbits, bool multiHits, bool properReads, bool &unassigned, bool &unknown);
+template <class T> bool samToCategory(T &category, uint32_t &umiIndex, uint32_t &pos, bool &multiHit, std::string &alignedId, char *fullLine, uint8_t barcodeSize,uint8_t umiSize, std::unordered_map<std::string,std::string> &refseqToGene, std::unordered_map<std::string,uint32_t> &erccToIndex, std::unordered_map<std::string,uint32_t> &geneToIndex, uint32_t posMask, uint8_t binsizebits, uint8_t nbinbits, bool multiHits, bool sameGeneHitNotMultiHit, bool properPairs, bool &unassigned, bool &nonRefseq);
 
 template <class T>class umipanel{
 	//T is used to choose between unsigned char for 96 weill and uint16_t for 384 wells
@@ -316,6 +317,21 @@ std::string splitStrIndex(std::string str,const char *delim, int index){
  return "";
 }
 
+std::string readWells(std::string filename, std::unordered_map<std::string,uint32_t> &wellToIndex, std::vector<std::string> &wellList, std::vector<std::string> &shortWellIds){
+	FILE *fp=fopen(filename.c_str(),"r");
+	if(!fp)exit(EXIT_FAILURE);
+	char line[64],id[64],well[64],seq[64];
+	uint32_t k=0;
+	while(fgets(line,sizeof(line),fp)){
+	 sscanf(line,"%s %s %s",id,well,seq);
+	 wellList.push_back(std::string(id)+"_"+std::string(well));
+	 shortWellIds.push_back(well);
+	 wellToIndex[std::string(well)]=k;
+	 wellToIndex[std::string(id)+"_"+std::string(well)]=k++;
+	}
+	fclose(fp);
+	return std::string(id);	
+}
 std::string readWells(std::string filename, std::unordered_map<std::string,uint32_t> &wellToIndex,std::vector<std::string> &wellList){
 	FILE *fp=fopen(filename.c_str(),"r");
 	if(!fp)exit(EXIT_FAILURE);
@@ -329,8 +345,7 @@ std::string readWells(std::string filename, std::unordered_map<std::string,uint3
 	}
 	fclose(fp);
 	return std::string(id);	
-}
-	
+}	
 void readERCC(std::string filename, std::vector<std::string> &erccList){
 	FILE *fp=fopen(filename.c_str(),"r");
 	if(!fp)exit(EXIT_FAILURE);
@@ -411,13 +426,21 @@ uint8_t minBitsToRepresent(uint32_t number){
 uint8_t bitsNeeded(uint32_t ncategories, uint8_t umiSize, uint8_t nbinbits, bool markMultiHits){
     return minBitsToRepresent(ncategories) + nbinbits + markMultiHits + 2*umiSize;
 }
-
-bool checkMultiHit(std::string alignedId, uint32_t pos, uint8_t nbinbits, uint8_t binsizebits, uint32_t posMask, std::string matchString, std::unordered_map<std::string,std::string> &refseqToGene){
+void bitPrint(FILE *fp, uint64_t value, uint8_t valuebits){
+	const uint64_t one=1;
+	for (int i=valuebits-1;i>=0;i--){
+			fprintf(fp,"%d",(value >>i) & one);
+			if(!(i % 4))fprintf(fp," ");
+	}
+	fprintf(fp,"\n");
+	
+}
+bool checkMultiHit(std::string alignedId, uint32_t pos, uint8_t nbinbits, uint8_t binsizebits, uint32_t posMask, std::string matchString, std::unordered_map<std::string,std::string> &refseqToGene, bool sameGeneHitNotMultiHit){
 	std::vector<std::string> split_loc;
 	std::string best_hits_loc = splitStrIndex(matchString,":",-1);
 	splitStr(best_hits_loc,";",split_loc);
 	//with ERCC and chrM we check the alignedId directly, otherwise we first transform to refSeq in case we have two names mapping to same id
-	if (alignedId.substr(0,4) == "ERCC" || alignedId.substr(0,4) == "chrM"){
+	if (alignedId.substr(0,4) == "ERCC" || alignedId.substr(0,4) == "chrM" || !refseqToGene.count(alignedId)){
 		for (auto iter = split_loc.begin(); iter != split_loc.end(); ++iter){
 			std::string geneString=splitStrIndex(*iter,",",0);
 			if (geneString != alignedId) return 1;
@@ -430,6 +453,7 @@ bool checkMultiHit(std::string alignedId, uint32_t pos, uint8_t nbinbits, uint8_
 			if(!refseqToGene.count(geneString) || gene != refseqToGene[geneString]) return 1;
 		}
 	}
+	if (sameGeneHitNotMultiHit) return 0;
 	//if we made it through to here then we check that the positions are the same
 	if (nbinbits > 0 && nbinbits > binsizebits){
 		uint32_t bin = pos >> binsizebits & posMask;
@@ -452,85 +476,83 @@ bool checkMultiHit(std::string alignedId, uint32_t pos, uint8_t nbinbits, uint8_
 	}
 	return 0;
 }
-	//probably could do all of these templates using lambdas 
-	//no longer uses modulo - round up to nearest bit for encoding and decoding genes which might waste a bit but saves computation
-	
-	//no umi version 
 
-void readAlignedFiles(std::string aligned_dir, std::vector<std::string> &alignedFiles, std::string suffix, std::string well, bool mixtureOfWells){
- 	 glob_t glob_result;
-	 std::string globString=aligned_dir+"/"+well+"/"+"*." + suffix;
-	 if (mixtureOfWells) globString=aligned_dir+"/*_"+well+"_"+"*."+suffix;
-	 glob(globString.c_str(),GLOB_TILDE,NULL,&glob_result);
-	 fprintf(stderr,"The glob string is %s\n",globString.c_str());
-	 for(int j=0; j<glob_result.gl_pathc; j++){
-		alignedFiles.push_back(std::string(glob_result.gl_pathv[j]));
-	 }	
-}
+
 template <class T> T encodeMapping(uint32_t category, uint32_t umiIndex, uint32_t pos,uint8_t nbinbits, uint8_t binsizebits, uint8_t umibits, uint32_t posMask, T leftBitMask, bool multiHit, bool markMultiHits){
 	T code=category;
+//	bitPrint(stderr,code,64);
 	if (umibits) code=(code << umibits) | umiIndex;
+//	bitPrint(stderr,umiIndex,64);
+//	bitPrint(stderr,code,64);
 	if(nbinbits){
-		T positionCode=(pos >> binsizebits) & posMask; 
+//		fprintf(stderr,"%d\n",pos);
+		T positionCode=(pos >> binsizebits) & posMask;
+//		bitPrint(stderr,positionCode,64);
 		code = (code << nbinbits) | positionCode;
-	}	
+	}
+//	bitPrint(stderr,code,64);	
 	if (multiHit && markMultiHits) code = code | leftBitMask;
+//	bitPrint(stderr,code,64);
 	return code;
 }
 
-template <class T> bool samToCategory(T &category, uint32_t &umiIndex, uint32_t &pos, bool &multiHit, std::string &alignedId, char *fullLine, uint8_t barcodeSize,uint8_t umiSize, std::unordered_map<std::string,std::string> refseqToGene,std::unordered_map<std::string,uint32_t>erccToIndex,std::unordered_map<std::string,uint32_t>geneToIndex, uint32_t posMask, uint8_t binsizebits, uint8_t nbinbits, bool multiHits, bool properReads, bool &unassigned, bool &unknown){
-        const uint32_t geneListSize = geneToIndex.size();
-        const uint32_t erccListSize = erccToIndex.size();
-        //add 1 for chrM
-        const uint32_t ncategories = geneListSize + erccListSize +1;
-        unassigned=1;
-        unknown=0;
-		if(fullLine[0] == '@') return 0;
-		//remove \n if it exists
-		fullLine[strcspn(fullLine, "\r\n")] = 0;
-		T code=0;
-		std::vector <std::string> items;
-		std::vector <std::string> tempItems;
-		bool printFlag=0;
-		splitStr(fullLine," \t",items);
-		splitStr(items[0],":",tempItems);
-		std::string fullBarcode,barcode;
-		//umis then check for ambiguity in barcode
-		if (barcodeSize || umiSize){
-			//then we check for barcodes which are encoded here
-			std::string fullBarcode=tempItems[tempItems.size()-1];
-			if (umiSize){
-				barcode=fullBarcode.substr(barcodeSize,umiSize);
-			    //skip if ambiguous barcode and get unique barcode index from sequence
-				if(ambigCheck(barcode,umiIndex)) return 0;
-			}
+template <class T> bool samToCategory(T &category, uint32_t &umiIndex, uint32_t &pos, bool &multiHit, std::string &alignedId, char *fullLine, uint8_t barcodeSize,uint8_t umiSize, std::unordered_map<std::string,std::string> &refseqToGene, std::unordered_map<std::string,uint32_t> &erccToIndex, std::unordered_map<std::string,uint32_t> &geneToIndex, uint32_t posMask, uint8_t binsizebits, uint8_t nbinbits, bool multiHits, bool sameGeneHitNotMultiHit, bool properPairs, bool &unassigned, bool &nonRefseq){
+	if(fullLine[0] == '@') return 0;
+	const uint32_t geneListSize = geneToIndex.size();
+	const uint32_t erccListSize = erccToIndex.size();
+	//add 1 for chrM
+	const uint32_t ncategories = geneListSize + erccListSize +1;
+	unassigned=1;
+	nonRefseq=0;
+   
+	//remove \n if it exists
+	fullLine[strcspn(fullLine, "\r\n")] = 0;
+	T code=0;
+	std::vector <std::string> items;
+	std::vector <std::string> tempItems;
+	bool printFlag=0;
+	splitStr(fullLine," \t",items);
+	splitStr(items[0],":",tempItems);
+	std::string fullBarcode,barcode;
+	//umis then check for ambiguity in barcode
+	if (barcodeSize || umiSize){
+		//then we check for barcodes which are encoded here
+		std::string fullBarcode=tempItems[tempItems.size()-1];
+		if (umiSize){
+			barcode=fullBarcode.substr(barcodeSize,umiSize);
+		    //skip if ambiguous barcode and get unique barcode index from sequence
+			if(ambigCheck(barcode,umiIndex)) return 0;
 		}
-		//if it is not barcoded/UMI and properReads is set that means we are looking at paired ends and will only count matched reads
-		else if (properReads){
-			uint32_t flag=(uint32_t)stoi(items[0]);
-			uint32_t mask=2;
-			if (!(flag & mask)) return 0;
-		}
-		alignedId=std::string(items[2]);
-		pos = stoi(items[3]);
-		if(alignedId == "*") return 0;
-		std::string read=items[9];
-		int edit_dist=stoi(splitStrIndex(items[12],":",-1));
-		int best_hits=stoi(splitStrIndex(items[13],":",-1));
-		//the original script does skip this read if any of these are true
-		if(edit_dist > MAX_EDIT_DISTANCE || best_hits > MAX_BEST || polyACheck(read)) return 0;
-		multiHit=0;
-		if (best_hits > 1 && items.size() > 19){
-			multiHit = checkMultiHit(alignedId, pos, nbinbits, binsizebits, posMask, items[19],refseqToGene);
-		}
-		if (alignedId.substr(0,4) == "ERCC") category= geneListSize + erccToIndex[alignedId];
-		else if (alignedId.substr(0,4) == "chrM") category = ncategories-1;
-		else if (refseqToGene.count(alignedId)) category = geneToIndex[refseqToGene[alignedId]];
-		else{
-			unknown=1;
-			return 1;
-		}
-		return 1;
-}
+	}
+	//if it is not barcoded/UMI and properPairs is set that means we are looking at paired ends and will only count matched reads
+	else if (properPairs){
+		uint32_t flag=(uint32_t)stoi(items[0]);
+		uint32_t mask=2;
+		if (!(flag & mask)) return 0;
+	}
+	alignedId=std::string(items[2]);
+	pos = stoi(items[3]);
+	if(alignedId == "*") return 0;
+	std::string read=items[9];
+	int edit_dist=stoi(splitStrIndex(items[12],":",-1));
+	int best_hits=stoi(splitStrIndex(items[13],":",-1));
+	//the original script does skip this read if any of these are true
+	if(edit_dist > MAX_EDIT_DISTANCE || best_hits > MAX_BEST || polyACheck(read)) return 0;		
+	if (best_hits > 1 && items.size() > 19){
+		multiHit = checkMultiHit(alignedId, pos, nbinbits, binsizebits, posMask, items[19],refseqToGene,sameGeneHitNotMultiHit);
+	}
+	if (alignedId.substr(0,4) == "ERCC"){
+		 category= geneListSize + erccToIndex[alignedId];
+	}
+	else if (alignedId.substr(0,4) == "chrM"){
+		 category = ncategories-1;
+	}
+	else if (refseqToGene.count(alignedId)) category = geneToIndex[refseqToGene[alignedId]];
+	else{
+		nonRefseq=1;
+		category=0;
+	}
+	return 1;
+}	
 
 

@@ -69,12 +69,7 @@ umimerge_parallel.o : umimerge_parallel.cpp
 umimerge_filter : $(OBJ_umimerge_filter)
 	$(LD) -o ${DIR}umimerge_filter -static-libstdc++ $(OBJ_umimerge_filter) $(MERGELIBS)
 umimerge_filter.o : umimerge_filter.cpp 
-	$(CPP) $(CFLAGS) -c umimerge_filter.cpp		
-		
-merge_filter : $(OBJ_merge_filter)
-	$(LD) -o ${DIR}merge_filter -static-libstdc++ $(OBJ_merge_filter) $(MERGELIBS)
-merge_filter.o : merge_filter.cpp 
-	$(CPP) $(CFLAGS) -c merge_filter.cpp			
+	$(CPP) $(CFLAGS) -c umimerge_filter.cpp			
 
 umisplit : $(OBJ_umisplit)
 	$(LD) -o ${DIR}umisplit $(LFLAGS) $(OBJ_umisplit) $(LIBS)

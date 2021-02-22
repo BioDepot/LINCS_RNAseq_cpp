@@ -35,7 +35,7 @@ extern "C" {
  #include "optparse.h"  
 }
 
-template <class T> void merge_filter(std::vector<std::string> &erccList ,std::vector<std::string> &geneList, std::unordered_map<std::string,std::string> refseqToGene,std::unordered_map<std::string,unsigned int>erccToIndex,std::unordered_map<std::string,unsigned int>geneToIndex, uint8_t binsizebits, uint8_t nbinbits, std::string inputFile, std::string outputFile, uint8_t barcodeSize, uint8_t umiSize, bool properReads, bool markMultiHits){
+template <class T> void merge_filter(std::vector<std::string> &erccList ,std::vector<std::string> &geneList, std::unordered_map<std::string,std::string> refseqToGene,std::unordered_map<std::string,unsigned int>erccToIndex,std::unordered_map<std::string,unsigned int>geneToIndex, uint8_t binsizebits, uint8_t nbinbits, std::string inputFile, std::string outputFile, uint8_t barcodeSize, uint8_t umiSize, bool properPairs, bool markMultiHits, bool sameGeneHitNotMultiHit){
 	
 	const uint32_t geneListSize = geneList.size();
 	const uint32_t erccListSize = erccList.size();
@@ -55,83 +55,90 @@ template <class T> void merge_filter(std::vector<std::string> &erccList ,std::ve
 	if (outputFile != "") ofp=fopen(outputFile.c_str(),"w");
 	else ofp=stdout;
 	while(fgets(fullLine, MAXLINESIZE, ifp)){
+		if(fullLine[0] == '@') continue;
 		T category=0;
 		uint32_t umiIndex=0,pos;
-		bool multiHit=0, assignedFlag=0, unknownFlag=0;
+		bool multiHit=0, assignedFlag=0, nonRefseqFlag=0;
 		std::string alignedId;
-		if (samToCategory(category,umiIndex,pos,multiHit,alignedId,fullLine,barcodeSize,umiSize,refseqToGene,erccToIndex,geneToIndex,posMask, binsizebits, nbinbits,markMultiHits, properReads,assignedFlag,unknownFlag)){
-			T code=encodeMapping(category,umiIndex,pos, nbinbits,binsizebits, 2*umiSize, posMask,leftBitMask, multiHit, markMultiHits);
-			fwrite(&code,1,sizeof(code),ofp);
+		if (samToCategory(category,umiIndex,pos,multiHit,alignedId,fullLine,barcodeSize,umiSize,refseqToGene,erccToIndex,geneToIndex,posMask, binsizebits, nbinbits,markMultiHits, sameGeneHitNotMultiHit, properPairs,assignedFlag,nonRefseqFlag)){
+			if (markMultiHits || !multiHit){
+				T code=encodeMapping(category,umiIndex,pos, nbinbits,binsizebits, 2*umiSize, posMask,leftBitMask, multiHit, markMultiHits);
+				fprintf(stderr,"%d\n",category);
+				fwrite(&code,1,sizeof(code),ofp);
+			}
 		}
     }
 	if (ifp && ifp != stdin) fclose(ifp);
 	if (ofp && ofp != stdout) fclose(ofp);
 }
-   
 int main(int argc, char *argv[]){
-	int nbinbits=16; //this is the number of binned positions kept per gene as power of 2 or number of bits - set this to zero if position does not matter 
-	int binSize=0;//size of the binned position as power of 2 (number of bits)
-	uint8_t umiSize=UMISIZE, barcodeSize=6;
-	bool markMultkHits=0, properPairs=0;
-	std::string sym2ref="", ercc_fasta="",inputFile="",outputFile="";
-	int opt,verbose=0;
+	bool markMultiHits=0,markNonRefseq=0,properPairs=0;
+	uint8_t barcodeSize=6, umiSize=10, nbinbits=16, binsizebits=0;
+	bool geneLevelFilter=0,filteredSAMfiles=0,mixtureOfWells=0,sameGeneHitNotMultiHit=0;
+	std::string sampleId="",sym2ref="", ercc_fasta="", barcodes="", alignDir="", resultsDir="",countsFile="", inputFile="", outputFile="";
+	int opt,verbose=0,nthreads=1;
 	struct optparse options;
  optparse_init(&options, argv);	
- 
- std::string errmsg="umimerge_filter vh?i:g:n:e:o:N:U:B\n-h -?  (display this message)\n-v (Verbose mode)\n-g Filter identical UMIs that map to same gene\n-i <sample_id>\n-s <sym2ref file>\n-e <ercc_fasta file>\n-p <bin size for UMI position based filtering i.e 0 bits means reads with identical UMIs are discarded if they have same mapping position; 1 bit means reads with identical UMIs are discarded if their mapping position falls into same 2 basepair bin; 2 bit mean 4 basepair bins etc... \n\numimerge_filter is experimental. It takes samfile output for an aligned read and writes a 16 bit hashvalue for the gene and map position. Required params are -i sample_id -s sym2ref -e ercc_fasta -b barcodes -a aligned_dir -o dge_dir\n\nExample:\n\ncat myFile.sam | umimerge_filter  -s  References/Broad_UMI/Human_RefSeq/refGene.hg19.sym2ref.dat -e References/Broad_UMI/ERCC92.fa -p 0 > myOutputFile.saf\n";
- while ((opt = optparse(&options, "v?hgi:o:n:s:e:p:")) != -1) {
-	switch (opt){
+	std::string errmsg="umimerge_parallel v?hPM:g:i:o:s:e:p:B:U: -?  (display this message)\n-v (Verbose mode)\n--s <sym2ref file>\n-e <ercc_fasta file>\n-i <inputFile> (default stdin)\n-o <outputFile> (default stdout)\n-p <bin size for UMI position based filtering i.e 0 bits means reads with identical UMIs are discarded if they have same mapping position; 1 bit means reads with identical UMIs are discarded if their mapping position falls into same 2 basepair bin; 2 bit mean 4 basepair bins etc... \n"; 
+	while ((opt = optparse(&options, "v?hPMSi:o:n:s:e:p:B:U:")) != -1) {
+		switch (opt){
 			case 'v':
-				verbose=1;
+			 verbose=1;
 			break;
-				case 'n':
-				nbinbits=atoi(options.optarg);
-			//set nbinbits - default is 16 bits otherwise  
+			case 'n':
+			 nbinbits=atoi(options.optarg);
+			 //set nbinbits - default is 16 bits otherwise  
 			break;
-				case 'i':
+			case 'i':
 				inputFile=std::string(options.optarg);
 			break; 
-				case 'o':
+			case 'o':
 				outputFile=std::string(options.optarg);
-			break;  
+			break; 
 			case 's':
 				sym2ref=std::string(options.optarg);
 			break;
 			case 'e':
 				ercc_fasta=std::string(options.optarg);
-			break; 
+			break;   
 			case 'p':		 
-				binSize=atoi(options.optarg);
+				binsizebits=atoi(options.optarg);
 			break;
-			case 'N':		 
-				nbinbits=atoi(options.optarg);
+			case 'P':		 
+				properPairs=1;
+				//for paired ends 
 			break;
-			case 'U':		 
+			case  'M':
+				markMultiHits=1;
+			break;
+			case  'B':
+				barcodeSize=atoi(options.optarg);;
+			break;
+			case  'U':
 				umiSize=atoi(options.optarg);
 			break;
-			case 'B':		 
-				barcodeSize=atoi(options.optarg);
-			break;			                 
+			case 'S':
+				sameGeneHitNotMultiHit=1;
+			break;
 			case '?':
-			fprintf(stderr, "%s parameters are: %s\n", argv[0], errmsg.c_str());
-    exit(0);
-   break;
-   case 'h':
-    fprintf(stderr, "%s parameters are: %s\n", argv[0], errmsg.c_str());
-    exit(0);
-   break; 
-  }
- }
- if(sym2ref==""){
+				fprintf(stderr, "%s parameters are: %s\n", argv[0], errmsg.c_str());
+				exit(0);
+			break;
+			case 'h':
+				fprintf(stderr, "%s parameters are: %s\n", argv[0], errmsg.c_str());
+			exit(0);
+			break; 
+		}
+	}
+	if(sym2ref==""){
 		fprintf(stderr,"Required parameter is-s sym2ref \n");
 		exit(EXIT_FAILURE);
  }	
  
-
  std::unordered_map<std::string,std::string> refseqToGene;
  std::vector<std::string>erccList, geneList;
- std::unordered_map<std::string,unsigned int>erccToIndex;
- std::unordered_map<std::string,unsigned int>geneToIndex;
+ std::unordered_map<std::string,uint32_t>erccToIndex;
+ std::unordered_map<std::string,uint32_t>geneToIndex;
  std::vector<std::string> unknown_list;
 
  if (ercc_fasta != "") readERCC(ercc_fasta,erccList);
@@ -140,10 +147,15 @@ int main(int argc, char *argv[]){
 	geneToIndex[geneList[i]]=i;
  for(int i=0;i<erccList.size();i++)
 	erccToIndex[erccList[i]]=i; 
- uint8_t nbits=bitsNeeded(geneList.size(),erccList.size(),umiSize,nbinbits,binSize,markMultkHits);
- if (nbits <= 16)  merge_filter<uint16_t>(erccList,geneList,refseqToGene,erccToIndex,geneToIndex,binSize,nbinbits,inputFile,outputFile,barcodeSize,umiSize,properPairs,markMultkHits);
- else if (nbits <= 32 )  merge_filter<uint32_t>(erccList,geneList,refseqToGene,erccToIndex,geneToIndex,binSize,nbinbits,inputFile,outputFile,barcodeSize,umiSize,properPairs,markMultkHits);
- else merge_filter<uint64_t>(erccList,geneList,refseqToGene,erccToIndex,geneToIndex,binSize,nbinbits,inputFile,outputFile,barcodeSize,umiSize,properPairs,markMultkHits);
+
+uint8_t bitSize=bitsNeeded(erccList.size()+geneList.size()+1,umiSize, nbinbits, markMultiHits);
+uint32_t posMask=(1 << nbinbits) -1;
+
+ if (bitSize <= 16)  merge_filter<uint16_t>(erccList,geneList,refseqToGene,erccToIndex,geneToIndex,binsizebits,nbinbits,inputFile,outputFile,barcodeSize,umiSize,properPairs,markMultiHits,sameGeneHitNotMultiHit);
+ else if (bitSize <= 32 )  merge_filter<uint32_t>(erccList,geneList,refseqToGene,erccToIndex,geneToIndex,binsizebits,nbinbits,inputFile,outputFile,barcodeSize,umiSize,properPairs,markMultiHits,sameGeneHitNotMultiHit);
+ else merge_filter<uint64_t>(erccList,geneList,refseqToGene,erccToIndex,geneToIndex,binsizebits,nbinbits,inputFile,outputFile,barcodeSize,umiSize,properPairs,markMultiHits,sameGeneHitNotMultiHit);
  return 1;		
 	 
-}
+}		
+	 
+
