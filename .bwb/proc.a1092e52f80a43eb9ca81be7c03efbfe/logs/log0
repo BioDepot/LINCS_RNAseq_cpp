@@ -1,0 +1,5 @@
+tempDir proc.a1092e52f80a43eb9ca81be7c03efbfe
+logBaseDir /data/.bwb
+ -v /home/lhhung/repos/LINCS_RNAseq_cpp:/data -v /var/run/docker.sock:/var/run/docker.sock   runner:test docker run --rm -i alpine:latest ls  /data 
+docker run -i --rm  --init --cidfile=/tmp/proc.a1092e52f80a43eb9ca81be7c03efbfe/locks/lock0/pid.4000 -v /home/lhhung/repos/LINCS_RNAseq_cpp/.bwbshare/proc.a1092e52f80a43eb9ca81be7c03efbfe/output0:/tmp/output   -v /home/lhhung/repos/LINCS_RNAseq_cpp:/data -v /var/run/docker.sock:/var/run/docker.sock   runner:test docker run --rm -i alpine:latest ls  /data 
+ls: /data: No such file or directory

@@ -635,7 +635,7 @@ int main(int argc, char *argv[]){
 		wellList.push_back("Total");
 	    shortWellIds.push_back("Total");
 	}
-	readERCC(ercc_fasta,erccList);
+	if (!ercc_fasta.empty()) readERCC(ercc_fasta,erccList);
 	readRefseq(sym2ref,refseqToGene ,geneList);
  
 	categoryList=geneList;
