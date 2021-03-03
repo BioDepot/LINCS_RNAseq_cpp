@@ -534,8 +534,10 @@ template <class T> bool samToCategory(T &category, uint32_t &umiIndex, uint32_t 
 	pos = stoi(items[3]);
 	if(alignedId == "*") return 0;
 	std::string read=items[9];
-	int edit_dist=stoi(splitStrIndex(items[12],":",-1));
-	int best_hits=stoi(splitStrIndex(items[13],":",-1));
+	//kallisto SAM does not have the next two fields
+	int edit_dist=0,best_hits=0;
+	if  (items.size() > 12 && !items[12].compare(0,2,"X0")) edit_dist=stoi(splitStrIndex(items[12],":",-1));
+	if  (items.size() > 13 && !items[13].compare(0,2,"X1")) best_hits=stoi(splitStrIndex(items[13],":",-1));
 	//the original script does skip this read if any of these are true
 	if(edit_dist > MAX_EDIT_DISTANCE || best_hits > MAX_BEST || polyACheck(read)) return 0;		
 	if (best_hits > 1 && items.size() > 19){
