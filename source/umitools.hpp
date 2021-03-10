@@ -534,14 +534,22 @@ template <class T> bool samToCategory(T &category, uint32_t &umiIndex, uint32_t 
 	pos = stoi(items[3]);
 	if(alignedId == "*") return 0;
 	std::string read=items[9];
-	//kallisto SAM does not have the next two fields
+	//kallisto SAM does not have fields 10 if not aligned, does not have field 12 and 13 if extra
 	int edit_dist=0,best_hits=0;
-	if  (items.size() > 12 && !items[12].compare(0,2,"X0")) edit_dist=stoi(splitStrIndex(items[12],":",-1));
-	if  (items.size() > 13 && !items[13].compare(0,2,"X1")) best_hits=stoi(splitStrIndex(items[13],":",-1));
-	//the original script does skip this read if any of these are true
-	if(edit_dist > MAX_EDIT_DISTANCE || best_hits > MAX_BEST || polyACheck(read)) return 0;		
-	if (best_hits > 1 && items.size() > 19){
-		multiHit = checkMultiHit(alignedId, pos, nbinbits, binsizebits, posMask, items[19],refseqToGene,sameGeneHitNotMultiHit);
+	
+	if(items.size() == 14){
+		best_hits=stoi(splitStrIndex(items[12],":",-1));
+		multiHit = checkMultiHit(alignedId, pos, nbinbits, binsizebits, posMask, items[13],refseqToGene,sameGeneHitNotMultiHit);
+	   //kallisto multihit
+	}
+	else if (items.size() > 19) {
+		if  (items.size() > 12 && !items[12].compare(0,2,"X0")) edit_dist=stoi(splitStrIndex(items[12],":",-1));
+		if  (items.size() > 13 && !items[13].compare(0,2,"X1")) best_hits=stoi(splitStrIndex(items[13],":",-1));
+		//the original script does skip this read if any of these are true
+		if(edit_dist > MAX_EDIT_DISTANCE || best_hits > MAX_BEST || polyACheck(read)) return 0;		
+		if (best_hits >= 1 && items.size() > 19){
+			multiHit = checkMultiHit(alignedId, pos, nbinbits, binsizebits, posMask, items[19],refseqToGene,sameGeneHitNotMultiHit);
+		}
 	}
 	if (alignedId.substr(0,4) == "ERCC"){
 		 category= geneListSize + erccToIndex[alignedId];
