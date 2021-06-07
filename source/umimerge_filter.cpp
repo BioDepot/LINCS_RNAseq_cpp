@@ -63,7 +63,6 @@ template <class T> void merge_filter(std::vector<std::string> &erccList ,std::ve
 		if (samToCategory(category,umiIndex,pos,multiHit,alignedId,fullLine,barcodeSize,umiSize,refseqToGene,erccToIndex,geneToIndex,posMask, binsizebits, nbinbits,markMultiHits, sameGeneHitNotMultiHit, properPairs,assignedFlag,nonRefseqFlag)){
 			if (markMultiHits || !multiHit){
 				T code=encodeMapping(category,umiIndex,pos, nbinbits,binsizebits, 2*umiSize, posMask,leftBitMask, multiHit, markMultiHits);
-				fprintf(stderr,"%d\n",category);
 				fwrite(&code,1,sizeof(code),ofp);
 			}
 		}

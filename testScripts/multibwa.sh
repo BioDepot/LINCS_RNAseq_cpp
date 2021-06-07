@@ -8,14 +8,13 @@ ALIGN_DIR=$4
 BWA_ALN_SEED_LENGTH=$5
 BWA_SAM_MAX_ALIGNS_FOR_XA_TAG=$6
 nThreads=$7
-FILTERBIN="grep -v '^\@'"
-if  [ -z "$FILTERBIN" ]; then
- if [ -z "$8" ]; then
+FILTERBIN=${8:1:-1}
+suffix="saf"
+ if [ -z "$FILTERBIN" ]; then
   FILTERBIN="grep -v '^\@'"
- else
-  eval FILTERBIN = $8
+  suffix="sam"
  fi
-fi
+
 REF_SEQ_FILE=$SPECIES_DIR/refMrna_ERCC_polyAstrip.hg19.fa
 
 lockDir=/tmp/locks.$$
@@ -32,7 +31,8 @@ runJob(){
 		 cat $dir/*.fq >  $dir/all.fastq
 		 #put this just in case there is a race condition
 		 if ls $dir/all.fastq 1> /dev/null 2>&1; then
-		  (bwa aln -l $BWA_ALN_SEED_LENGTH -t 1 $REF_SEQ_FILE $dir/all.fastq 2>/dev/null | bwa samse -n $BWA_SAM_MAX_ALIGNS_FOR_XA_TAG $REF_SEQ_FILE - $dir/all.fastq | $FILTERBIN > $dir/all.sam ) 
+			echo "(bwa aln -l $BWA_ALN_SEED_LENGTH -t 1 $REF_SEQ_FILE $dir/all.fastq 2>/dev/null | bwa samse -n $BWA_SAM_MAX_ALIGNS_FOR_XA_TAG $REF_SEQ_FILE - $dir/all.fastq | $FILTERBIN > $dir/all.$suffix )" 		  
+			(bwa aln -l $BWA_ALN_SEED_LENGTH -t 1 $REF_SEQ_FILE $dir/all.fastq 2>/dev/null | bwa samse -n $BWA_SAM_MAX_ALIGNS_FOR_XA_TAG $REF_SEQ_FILE - $dir/all.fastq | $FILTERBIN > $dir/all.$suffix ) 
 		  rm $dir/all.fastq
 		 else
 		  echo 'all.fastq not found'

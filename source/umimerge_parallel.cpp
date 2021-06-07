@@ -125,67 +125,79 @@ template <class T> class Counts{
 			}
 			fclose(fp);
 		}
-		uint32_t decodeMappings (std::string inputFile, uint32_t wellIndex){
-			uint32_t nreads=0;
+		uint32_t decodeMappings (std::string inputFile, uint32_t wellIndex, uint32_t &nassigned){
+			uint32_t naligned=0;
 			FILE *fp=fopen(inputFile.c_str(),"r");
 			T code;
 			if(markMultiHits){
 				while (fread(&code,sizeof(T),1,fp)){
 					const T category= (code >> nbinbits);
-					if (code >> (sizeof(T)-1)) categoryTotal_mm[wellIndex][category]++;
-					else categoryTotal[wellIndex][category]++;	
-					nreads++;
+					if (category) {
+						if (code >> (sizeof(T)-1)) categoryTotal_mm[wellIndex][category]++;
+						else categoryTotal[wellIndex][category]++;
+						nassigned++;
+					}	
+					naligned++;
 				}				
 			}
 			else{
 				while (fread(&code,sizeof(T),1,fp)){
 					const T category= (code >> nbinbits);
-					categoryTotal[wellIndex][category]++;
-					nreads++;	
+					if (category){
+						categoryTotal[wellIndex][category]++;
+						nassigned++;
+					}
+					naligned++;	
 				}
 			}
 			fclose(fp);
-			return nreads;
+			return naligned;
 		}
-		uint32_t decodeMappingsUmi (std::string inputFile, uint8_t umipositionBits,std::unordered_set<T> &umi_seen, std::unordered_set<T> &umi_seen_mm, uint32_t wellIndex){
-			uint32_t nreads=0;
+		uint32_t decodeMappingsUmi (std::string inputFile, uint8_t umipositionBits,std::unordered_set<T> &umi_seen, std::unordered_set<T> &umi_seen_mm, uint32_t wellIndex, uint32_t &nassigned){
+			uint32_t naligned=0;
 			T umicode;
 			//read in each file
 			FILE *fp=fopen(inputFile.c_str(),"r");
 			if (markMultiHits){
 				while (fread(&umicode,sizeof(T),1,fp)){
 					const T category= (umicode >> umipositionBits);
-					categoryTotal_mm[category]++;
-					if ( umicode >> (sizeof(T)-1)){
-						//multiHit
-						if(!umi_seen_mm.count(umicode)){
-							umi_seen_mm.insert(umicode);
-							categoryUmi_mm[wellIndex][category]++;
+					if (category){
+						categoryTotal_mm[category]++;
+						if ( umicode >> (sizeof(T)-1)){
+							//multiHit
+							if(!umi_seen_mm.count(umicode)){
+								umi_seen_mm.insert(umicode);
+								categoryUmi_mm[wellIndex][category]++;
+							}
 						}
-					}
-					else{
-						categoryTotal[wellIndex][category]++;
-						if(!umi_seen.count(umicode)){
-							umi_seen.insert(umicode);
-							categoryUmi[wellIndex][category]++;
+						else{
+							categoryTotal[wellIndex][category]++;
+							if(!umi_seen.count(umicode)){
+								umi_seen.insert(umicode);
+								categoryUmi[wellIndex][category]++;
+							}
 						}
+						nassigned++;
 					}
-					nreads++;				
+					naligned++;				
 				}	
 			}
 			else{
 				while (fread(&umicode,sizeof(T),1,fp)){
 					const T category = (umicode >> umipositionBits);
-					categoryTotal[wellIndex][category]++;
-					if(!umi_seen.count(umicode)){
-						umi_seen.insert(umicode);
-						categoryUmi[wellIndex][category]++;	
+					if (category){
+						categoryTotal[wellIndex][category]++;
+						if(!umi_seen.count(umicode)){
+							umi_seen.insert(umicode);
+							categoryUmi[wellIndex][category]++;	
+						}
+					 nassigned++;
 					}
-					nreads++;				
+					naligned++;				
 				}
 			}
 			fclose(fp);
-			return nreads;
+			return naligned;
 		}
 	 	void updateCounts(T category, T code, bool multiHit, std::string &nonRefseq, std::unordered_set<T> &umi_seen, std::unordered_set<T>& umi_seen_mm, uint32_t tid, uint32_t wellIndex,bool nonRefseqFlag){
 			if (multiHit){
@@ -302,12 +314,12 @@ template <class T> class Counts{
 					std::unordered_set<T>umi_seen_mm;
 					for(int i=0;i<inputFiles.size();i++){
 						fprintf(stderr,"Thread %d working on %s\n",tid,inputFiles[i].c_str());	
-						aligned_reads[tid]+=decodeMappingsUmi(inputFiles[i].c_str(),nbinbits+umibits,umi_seen, umi_seen_mm, wellIndex);
+						aligned_reads[tid]+=decodeMappingsUmi(inputFiles[i].c_str(),nbinbits+umibits,umi_seen, umi_seen_mm, wellIndex, assigned_reads[tid]);
 	                }
 	            }
 	            else{
 					for(int i=0;i<inputFiles.size();i++){					
-						aligned_reads[tid]+=decodeMappings(inputFiles[i].c_str(), wellIndex);
+						aligned_reads[tid]+=decodeMappings(inputFiles[i].c_str(), wellIndex, assigned_reads[tid]);
 	                }
 				}
 			}
@@ -427,7 +439,7 @@ template <class T> class Counts{
 	
 			FILE *fp=fopen(logFile.c_str(),"w");
 			if(!fp)exit(EXIT_FAILURE);
-			fprintf(fp,"Sample_ID\tTotal\tAligned\tAssigned\tSpike_Total\tSpike_UMI\tMito_Total\tMito_UMI\tRefseq_Total\tRefseq_UMI\tnonRefseq_Total\tnonRefseq_UMI\n");
+			fprintf(fp,"Sample_ID\tTotal\tAligned\tAssigned\tSpike_Total\tSpike_UMI\tMito_Total\tMito_UMI\tRefseq_Total\tRefseq_UMI\tnonRefseq_Total\t8_UMI\n");
 			fprintf(fp,"%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",
 				sampleId.c_str(),
 				sumThreadCounts(total_reads),
