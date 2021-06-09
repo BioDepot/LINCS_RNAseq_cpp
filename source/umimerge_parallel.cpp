@@ -200,6 +200,7 @@ template <class T> class Counts{
 			return naligned;
 		}
 	 	void updateCounts(T category, T code, bool multiHit, std::string &nonRefseq, std::unordered_set<T> &umi_seen, std::unordered_set<T>& umi_seen_mm, uint32_t tid, uint32_t wellIndex,bool nonRefseqFlag){
+			aligned_reads[tid]++;
 			if (multiHit){
 				if (!markMultiHits) return;
 				aligned_reads_mm[tid]++;
@@ -220,7 +221,6 @@ template <class T> class Counts{
 				}	
 			}	
 			else{
-				aligned_reads[tid]++;
 				if (nonRefseqFlag){
 					if(markNonRefseq){
 						assigned_nonRefseq_reads[tid]++;
@@ -282,7 +282,6 @@ template <class T> class Counts{
 						std::string alignedId;							
 						if (samToCategory(category,umiIndex,pos,multiHit,alignedId,fullLine,barcodeSize,umiSize,refseqToGene,erccToIndex,geneToIndex,posMask, binsizebits, nbinbits,markMultiHits, sameGeneHitNotMultiHit, properPairs,assignedFlag,nonRefseqFlag)){
 							if (multiHit){
-								total_reads[tid]--;
 								total_reads_mm[tid]++;
 							}
 							std::string nonRefseq = (nonRefseqFlag && markNonRefseq) ? alignedId : "";
@@ -294,6 +293,7 @@ template <class T> class Counts{
 								updateCounts(category,multiHit,tid,wellIndex,nonRefseqFlag);
 							}
 						}
+
 					}
 				}
 			}

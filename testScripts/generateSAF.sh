@@ -57,3 +57,5 @@ echo "${UMITOOLS_DIR}/testScripts/multibwa.sh $TOP_DIR $REF_DIR $SPECIES_DIR $AL
 $UMITOOLS_DIR/testScripts/multibwa.sh $TOP_DIR $REF_DIR $SPECIES_DIR $ALIGN_DIR $BWA_ALN_SEED_LENGTH $BWA_SAM_MAX_ALIGNS_FOR_XA_TAG $THREAD_NUMBER "\"${filterCmd}\""
 echo "${UMITOOLS_DIR}/source/w96/umimerge_parallel -i $SAMPLE_ID -b $BARCODE_FILE -s $SYM2REF_FILE -a $ALIGN_DIR -o $COUNT_DIR -t $THREAD_NUMBER -f -S " 
 $UMITOOLS_DIR/source/w96/umimerge_parallel -i $SAMPLE_ID -b $BARCODE_FILE -s $SYM2REF_FILE  -a $ALIGN_DIR -o $COUNT_DIR -t $THREAD_NUMBER -f -S
+echo "${UMITOOLS_DIR}/source/w96/umimerge_parallel -g -i $SAMPLE_ID -s $SYM2REF_FILE -e $ERCC_SEQ_FILE -b $BARCODE_FILE -a $ALIGN_DIR -o $COUNT_DIR -t $THREAD_NUMBER"
+$UMITOOLS_DIR/source/w96/umimerge_parallel -i $SAMPLE_ID -s $SYM2REF_FILE -e $ERCC_SEQ_FILE -b $BARCODE_FILE -a $ALIGN_DIR -o $COUNT_DIR -t $THREAD_NUMBER

@@ -542,9 +542,9 @@ template <class T> bool samToCategory(T &category, uint32_t &umiIndex, uint32_t 
 		multiHit = checkMultiHit(alignedId, pos, nbinbits, binsizebits, posMask, items[13],refseqToGene,sameGeneHitNotMultiHit);
 	   //kallisto multihit
 	}
-	else if (items.size() > 19) {
-		if  (items.size() > 12 && !items[12].compare(0,2,"X0")) edit_dist=stoi(splitStrIndex(items[12],":",-1));
-		if  (items.size() > 13 && !items[13].compare(0,2,"X1")) best_hits=stoi(splitStrIndex(items[13],":",-1));
+	else if (items.size() > 13) {
+		if  (items.size() > 12 && !items[12].compare(0,2,"NM")) edit_dist=stoi(splitStrIndex(items[12],":",-1));
+		if  (items.size() > 13 && !items[13].compare(0,2,"X0")) best_hits=stoi(splitStrIndex(items[13],":",-1));
 		//the original script does skip this read if any of these are true
 		if(edit_dist > MAX_EDIT_DISTANCE || best_hits > MAX_BEST || polyACheck(read)) return 0;		
 		if (best_hits >= 1 && items.size() > 19){

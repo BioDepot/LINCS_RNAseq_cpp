@@ -8,9 +8,15 @@ clean() {
 
 #(cd ./source; rm -r w96; make clean; make)
 clean ./data/LINCS
-echo "creating sam files"
-echo "./testScripts/generateSAM.sh ${PWD}"
-./testScripts/generateSAM.sh ${PWD}
-echo "creating saf files"
-echo "./testScripts/generateSAF.sh ${PWD}"
-./testScripts/generateSAF.sh ${PWD}
+echo "creating sam_saf files"
+echo "./testScripts/generateSAMSAF.sh ${PWD}"
+./testScripts/generateSAMSAF.sh ${PWD}
+#echo "creating sam files"
+#echo "./testScripts/generateSAM.sh ${PWD}"
+#./testScripts/generateSAM.sh ${PWD}
+#echo "creating saf files"
+#echo "./testScripts/generateSAF.sh ${PWD}"
+#./testScripts/generateSAF.sh ${PWD}
+#echo "creating old new sam files"
+#echo "./testScripts/generateOldNewSAM.sh ${PWD}"
+#./testScripts/generateOldNewSAM.sh ${PWD}
