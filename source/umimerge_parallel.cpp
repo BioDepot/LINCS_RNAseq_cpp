@@ -125,79 +125,53 @@ template <class T> class Counts{
 			}
 			fclose(fp);
 		}
-		uint32_t decodeMappings (std::string inputFile, uint32_t wellIndex, uint32_t &nassigned){
-			uint32_t naligned=0;
-			FILE *fp=fopen(inputFile.c_str(),"r");
+		void decodeMappings (std::string inputFile, uint32_t tid, uint32_t wellIndex){
 			T code;
-			if(markMultiHits){
+			FILE *fp=fopen(inputFile.c_str(),"r");
+			if (markMultiHits){
 				while (fread(&code,sizeof(T),1,fp)){
+					total_reads[tid]++;
 					const T category= (code >> nbinbits);
-					if (category) {
-						if (code >> (sizeof(T)-1)) categoryTotal_mm[wellIndex][category]++;
-						else categoryTotal[wellIndex][category]++;
-						nassigned++;
-					}	
-					naligned++;
-				}				
+					bool multiHit=code >> (sizeof(T)-1);
+					if (multiHit){
+						total_reads_mm[tid]++;
+					}
+					updateCounts(category, multiHit,tid, wellIndex, category == 0);
+				}
 			}
 			else{
 				while (fread(&code,sizeof(T),1,fp)){
+					total_reads[tid]++;
 					const T category= (code >> nbinbits);
-					if (category){
-						categoryTotal[wellIndex][category]++;
-						nassigned++;
-					}
-					naligned++;	
-				}
+					updateCounts(category, 0,tid, wellIndex, category == 0);
+				}				
 			}
-			fclose(fp);
-			return naligned;
 		}
-		uint32_t decodeMappingsUmi (std::string inputFile, uint8_t umipositionBits,std::unordered_set<T> &umi_seen, std::unordered_set<T> &umi_seen_mm, uint32_t wellIndex, uint32_t &nassigned){
-			uint32_t naligned=0;
+		void decodeMappingsUmi (std::string inputFile, uint8_t umipositionBits,std::unordered_set<T> &umi_seen, std::unordered_set<T> &umi_seen_mm, uint32_t tid, uint32_t wellIndex){
 			T umicode;
-			//read in each file
+			//nonRefseq labels cannot be tracked as gene labels are not kept in saf
+			std::string nonRefseq="";
 			FILE *fp=fopen(inputFile.c_str(),"r");
 			if (markMultiHits){
 				while (fread(&umicode,sizeof(T),1,fp)){
+					total_reads[tid]++;
 					const T category= (umicode >> umipositionBits);
+					bool multiHit=0;
 					if (category){
-						categoryTotal_mm[category]++;
-						if ( umicode >> (sizeof(T)-1)){
-							//multiHit
-							if(!umi_seen_mm.count(umicode)){
-								umi_seen_mm.insert(umicode);
-								categoryUmi_mm[wellIndex][category]++;
-							}
-						}
-						else{
-							categoryTotal[wellIndex][category]++;
-							if(!umi_seen.count(umicode)){
-								umi_seen.insert(umicode);
-								categoryUmi[wellIndex][category]++;
-							}
-						}
-						nassigned++;
+						multiHit=umicode >> (sizeof(T)-1);
+						if (multiHit) total_reads_mm[tid]++;
 					}
-					naligned++;				
+					updateCounts(category, umicode, multiHit, nonRefseq, umi_seen, umi_seen_mm, tid, wellIndex,category == 0);	
 				}	
 			}
 			else{
 				while (fread(&umicode,sizeof(T),1,fp)){
+					total_reads[tid]++;
 					const T category = (umicode >> umipositionBits);
-					if (category){
-						categoryTotal[wellIndex][category]++;
-						if(!umi_seen.count(umicode)){
-							umi_seen.insert(umicode);
-							categoryUmi[wellIndex][category]++;	
-						}
-					 nassigned++;
-					}
-					naligned++;				
+					updateCounts(category, umicode, 0, nonRefseq, umi_seen, umi_seen_mm, tid, wellIndex,category == 0);			
 				}
 			}
 			fclose(fp);
-			return naligned;
 		}
 	 	void updateCounts(T category, T code, bool multiHit, std::string &nonRefseq, std::unordered_set<T> &umi_seen, std::unordered_set<T>& umi_seen_mm, uint32_t tid, uint32_t wellIndex,bool nonRefseqFlag){
 			aligned_reads[tid]++;
@@ -239,6 +213,7 @@ template <class T> class Counts{
 			}				
 		}
 		void updateCounts(T category, bool multiHit,uint32_t tid, uint32_t wellIndex, bool nonRefseqFlag){
+			aligned_reads[tid]++;
 			if (multiHit){
 				if (!markMultiHits) return;
 				aligned_reads_mm[tid]++;
@@ -250,7 +225,7 @@ template <class T> class Counts{
 				categoryTotal_mm[wellIndex][category]++;	
 			}	
 			else{
-				aligned_reads[tid]++;
+				
 				if (nonRefseqFlag){
 					if(markNonRefseq) assigned_nonRefseq_reads[tid]++;
 					return;
@@ -314,12 +289,12 @@ template <class T> class Counts{
 					std::unordered_set<T>umi_seen_mm;
 					for(int i=0;i<inputFiles.size();i++){
 						fprintf(stderr,"Thread %d working on %s\n",tid,inputFiles[i].c_str());	
-						aligned_reads[tid]+=decodeMappingsUmi(inputFiles[i].c_str(),nbinbits+umibits,umi_seen, umi_seen_mm, wellIndex, assigned_reads[tid]);
+						decodeMappingsUmi(inputFiles[i].c_str(),nbinbits+umibits,umi_seen, umi_seen_mm, tid,wellIndex);
 	                }
 	            }
 	            else{
 					for(int i=0;i<inputFiles.size();i++){					
-						aligned_reads[tid]+=decodeMappings(inputFiles[i].c_str(), wellIndex, assigned_reads[tid]);
+						decodeMappings(inputFiles[i].c_str(), tid, wellIndex);
 	                }
 				}
 			}

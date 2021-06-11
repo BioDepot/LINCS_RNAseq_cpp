@@ -8,9 +8,13 @@ clean() {
 
 #(cd ./source; rm -r w96; make clean; make)
 clean ./data/LINCS
-echo "creating sam_saf files"
-echo "./testScripts/generateSAMSAF.sh ${PWD}"
-./testScripts/generateSAMSAF.sh ${PWD}
+echo "creating no-umi files"
+echo "./testScripts/generateNoUMI.sh ${PWD}"
+./testScripts/generateNoUMI.sh ${PWD} ./data/LINCS
+#clean ./data/LINCS
+#echo "creating sam_saf files"
+#echo "./testScripts/generateSAMSAF.sh ${PWD}"
+#./testScripts/generateSAMSAF.sh ${PWD}
 #echo "creating sam files"
 #echo "./testScripts/generateSAM.sh ${PWD}"
 #./testScripts/generateSAM.sh ${PWD}

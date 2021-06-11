@@ -32,7 +32,7 @@ filterCmd="${UMITOOLS_DIR}/source/w96/umimerge_filter -s $SYM2REF_FILE -S "
 PROG_DIR="$DATA_DIR/Programs/Broad-DGE"
 BWA_ALN_SEED_LENGTH=24
 BWA_SAM_MAX_ALIGNS_FOR_XA_TAG=20
-THREAD_NUMBER=16
+THREAD_NUMBER=1
 
 # 2 Computation
 

@@ -21,6 +21,7 @@ mkdir -p $lockDir
 runJob(){
 	#pid=$( sh -c 'echo $PPID' )
 	lasti=$((${#dirs[@]} - 1))
+	lasti=0
  for i in $(seq 0 ${lasti}); do
   if (mkdir $lockDir/lock$i 2> /dev/null ); then
    dir=${dirs[$i]}
@@ -36,6 +37,7 @@ runJob(){
 		 else
 		  echo 'all.fastq not found'
 		 fi
+		 exit 0
 		fi
 	done
 	exit
