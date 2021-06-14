@@ -6,6 +6,7 @@
 #include <glob.h>
 #include "umitools.hpp"
 
+
 //presently hardcoded for UMI size 16 and well barcode size 6
 //to generalize have to generalize the hash function as well
 
@@ -48,7 +49,7 @@ template <class T> class Counts{
 		std::unordered_set<std::string> nonRefseq_set_mm;
 		std::unordered_set<std::string> *nonRefseq_set_w_mm;
 		
-		const uint32_t nthreads,erccListSize,geneListSize,ncategories,nwells;
+		const uint32_t nthreads,erccListSize,geneListSize,ncategories,nwells,numberOfFastqFiles;
 		const uint8_t barcodeSize,umiSize;
 		
 		const bool markNonRefseq,markMultiHits,mixtureOfWells,properPairs,sameGeneHitNotMultiHit;
@@ -98,11 +99,17 @@ template <class T> class Counts{
 			}
 		    fprintf(fp,"\n");
 		}
-			
-		void readAlignedFiles(std::string alignDir, std::vector<std::string> &alignedFiles, std::string suffix, std::string well, bool 	mixtureOfWells){
+		
+		void readAlignedFiles(std::string alignDir, std::vector<std::string> &alignedFiles, std::string suffix, std::string well, bool 	mixtureOfWells, bool filenamesAreWells){
 			glob_t glob_result;
-			std::string globString=alignDir+"/"+well+"/"+"*." + suffix;
-			if (mixtureOfWells) globString=alignDir+"/*_"+well+"_"+"*."+suffix;
+			std::string globString;
+			if (filenamesAreWells){
+			  globString=alignDir+"/"+well+"_"+"*."+suffix;
+			}
+			else{  
+			  globString=alignDir+"/"+well+"/"+"*." + suffix;
+			  if (mixtureOfWells) globString=alignDir+"/*_"+well+"_"+"*."+suffix;
+			}
 			glob(globString.c_str(),GLOB_TILDE,NULL,&glob_result);
 			for(int j=0; j<glob_result.gl_pathc; j++){
 				alignedFiles.push_back(std::string(glob_result.gl_pathv[j]));
@@ -241,7 +248,7 @@ template <class T> class Counts{
 				const std::string well= shortWellIds[wellIndex];
 				std::vector<std::string> inputFiles;
 				std::unordered_set<T> umi_seen, umi_seen_mm;		
-				readAlignedFiles(alignsDir,inputFiles,"sam",well,mixtureOfWells);
+				readAlignedFiles(alignsDir,inputFiles,"sam",well,mixtureOfWells,numberOfFastqFiles);
 				for(int i=0;i<inputFiles.size();i++){
 					fprintf(stderr,"Thread %d working on %s\n",tid,inputFiles[i].c_str());	
 					char fullLine[MAXLINESIZE];
@@ -283,7 +290,7 @@ template <class T> class Counts{
 				const uint32_t tid=omp_get_thread_num();
 				const std::string well= shortWellIds[wellIndex];
 				std::vector<std::string> inputFiles;
-				readAlignedFiles(alignsDir,inputFiles,"saf",well,mixtureOfWells);
+				readAlignedFiles(alignsDir,inputFiles,"saf",well,mixtureOfWells,numberOfFastqFiles);
 				if (umibits){
 					std::unordered_set<T>umi_seen;
 					std::unordered_set<T>umi_seen_mm;
@@ -301,7 +308,7 @@ template <class T> class Counts{
 		}
 	public:
 		Counts(uint32_t in_nthreads, uint32_t maxErccListSize, uint32_t maxGeneListSize, bool in_markMultiHits, bool in_sameGeneHitNotMultiHit, bool in_mixtureOfWells, bool in_markNonRefseq,bool in_properPairs,uint8_t in_barcodeSize, uint8_t in_umiSize, uint8_t in_nbinbits, uint8_t in_binsizebits, std::string in_alignsDir, std::string in_sampleId, std::vector<std::string>& in_wellList,std::vector<std::string>& in_shortWellIds, std::vector<std::string>& in_categoryList,std::unordered_map<std::string,std::string>& in_refseqToGene, std::unordered_map<std::string,uint32_t>& in_erccToIndex,
-		std::unordered_map<std::string,uint32_t>& in_geneToIndex ) :
+		std::unordered_map<std::string,uint32_t>& in_geneToIndex, int in_numberOfFastqFiles, int in_nwells ) :
 
 		markMultiHits(in_markMultiHits),
 		sameGeneHitNotMultiHit(in_sameGeneHitNotMultiHit),
@@ -313,7 +320,7 @@ template <class T> class Counts{
 		nthreads(in_barcodeSize ? in_nthreads : 1),
 		erccListSize(maxErccListSize),
 		geneListSize(maxGeneListSize),
-		nwells (in_barcodeSize ? NWELLS : 1),
+		nwells ((in_numberOfFastqFiles) ? in_numberOfFastqFiles : ((in_nwells) ? in_nwells: NWELLS)),
 		ncategories(maxGeneListSize + maxErccListSize + 1),
 		alignsDir(in_alignsDir),
 		sampleId(in_sampleId),
@@ -327,8 +334,11 @@ template <class T> class Counts{
 		categoryList(in_categoryList),
 		refseqToGene(in_refseqToGene),
 		erccToIndex(in_erccToIndex),
-		geneToIndex(in_geneToIndex)	
+		geneToIndex(in_geneToIndex),
+		numberOfFastqFiles(in_numberOfFastqFiles)
 		{
+
+			
 			//non-gene dependent counts
 		    total_reads = new uint32_t [nthreads]();
 		    total_reads_mm = new uint32_t [nthreads]();
@@ -527,12 +537,12 @@ int main(int argc, char *argv[]){
 	uint8_t barcodeSize=6, umiSize=10, nbinbits=16, binsizebits=0;
 	bool geneLevelFilter=0,filteredSAMfiles=0,mixtureOfWells=0,sameGeneHitNotMultiHit=0;
 	std::string sampleId="",sym2ref="", ercc_fasta="", barcodes="", alignDir="", resultsDir="",countsFile="";
-	int opt,verbose=0,nthreads=1;
+	int opt,verbose=0,nthreads=1,numberOfFastqFiles=0,numberOfWells=NWELLS;
 	struct optparse options;
 	optparse_init(&options, argv);	
  
-	std::string errmsg="umimerge_parallel v?hfmn:go:t:i:s:e:m:c:b:a:p:\n-h -?  (display this message)\n-v (Verbose mode)\n-f Merge filtered SAM files (*.saf) instead of full SAM files\n-s <sym2ref file>\n-e <ercc_fasta file>\n-b <barcode_file>\n-a <aligns directory>\n-o <resultsDir(counts directory)>\n-c <binary file with umicounts - default is UMIcounts.bin in the input SAM directory>\n-t <number of threads (1)>\n-p <bin size for UMI position based filtering i.e 0 bits means reads with identical UMIs are discarded if they have same mapping position; 1 bit means reads with identical UMIs are discarded if their mapping position falls into same 2 basepair bin; 2 bit mean 4 basepair bins etc... \n-m The aligned files in the output directory are not separated into wells by subdirectories and the filename is used to identify the well\n\nRequired params are -i sampleId -s sym2ref -e ercc_fasta -b barcodes -a alignDir -o resultsDir\n\nExample:\n\numimerge_parallel -i RNAseq_20150409 -s  References/Broad_UMI/Human_RefSeq/refGene.hg19.sym2ref.dat -e References/Broad_UMI/ERCC92.fa -b References/Broad_UMI/barcodes_trugrade_96_set4.dat -a Aligns -o Counts -t 4 -p 0\n";
-	while ((opt = optparse(&options, "v?hfmMPSun:go:t:i:s:e:m:c:b:a:p:B:U:")) != -1) {
+	std::string errmsg="umimerge_parallel v?hfmn:go:t:i:s:e:m:c:b:a:p:B:U:F:\n-h -?  (display this message)\n-v (Verbose mode)\n-f Merge filtered SAM files (*.saf) instead of full SAM files\n-s <sym2ref file>\n-e <ercc_fasta file>\n-b <barcode_file or fastqlist>\n-a <aligns directory>\n-o <resultsDir(counts directory)>\n-c <binary file with umicounts - default is UMIcounts.bin in the input SAM directory>\n-t <number of threads (1)>\n-p <bin size for UMI position based filtering i.e 0 bits means reads with identical UMIs are discarded if they have same mapping position; 1 bit means reads with identical UMIs are discarded if their mapping position falls into same 2 basepair bin; 2 bit mean 4 basepair bins etc... \n-m <number of original fastqfiles> The aligned files in the output directory are not separated into wells by subdirectories and the well in the filename is used to identify the well\n-F The aligned files in the output directory are not separated by subdirectories and the entire filename base is used to identify the well\nRequired params are -i sampleId -s sym2ref -e ercc_fasta -a alignDir -b barcodefileOrFastqfileList -o resultsDir\n\nExample:\n\numimerge_parallel -i RNAseq_20150409 -s  References/Broad_UMI/Human_RefSeq/refGene.hg19.sym2ref.dat -e References/Broad_UMI/ERCC92.fa -b References/Broad_UMI/barcodes_trugrade_96_set4.dat -a Aligns -o Counts -t 4 -p 0\n";
+	while ((opt = optparse(&options, "v?hfmMPSun:go:t:i:s:e:m:c:b:a:p:B:U:F:")) != -1) {
 		switch (opt){
 			case 'v':
 			 verbose=1;
@@ -567,9 +577,15 @@ int main(int argc, char *argv[]){
 			case 'b':
 				barcodes=std::string(options.optarg);
 			break;
+			case 'w':
+				numberOfWells=atoi(options.optarg);
+			break;			
 			case 'm':
 				mixtureOfWells=1;
-			break;   
+			break;
+			case 'F':
+				numberOfFastqFiles=atoi(options.optarg);
+			break;
 			case 'a':
 				alignDir=std::string(options.optarg);
 			break;
@@ -617,7 +633,8 @@ int main(int argc, char *argv[]){
 	std::unordered_map<std::string,uint32_t>geneToIndex;
 	std::vector<std::string> nonRefseq_list;
 	
-	if (barcodeSize) readWells(barcodes,wellToIndex,wellList,shortWellIds);
+	if (numberOfFastqFiles) readFastqFileList(barcodes,wellToIndex,wellList,shortWellIds);
+	else if (barcodeSize) readWells(barcodes,wellToIndex,wellList,shortWellIds);
 	else {
 		wellList.push_back("Total");
 	    shortWellIds.push_back("Total");
@@ -648,22 +665,23 @@ int main(int argc, char *argv[]){
  		markMultiHits ? fprintf(stderr,"Mark multiple alignments\n") :   fprintf(stderr,"Discard multiple alignments\n");
  		sameGeneHitNotMultiHit ? fprintf(stderr,"Do not count alternate alignments to same gene when assessing uniqueness of alignment\n") :   fprintf(stderr,"Any alternate alignment mapping to different position makes alignment non-unique\n");
  		markNonRefseq ?  fprintf(stderr,"Mark transcripts that do not map to RefSeq ") :   fprintf(stderr,"Discard transcripts that do not map to RefSeq \n");
- 		properPairs ?  fprintf(stderr,"Paired-end reads - keep matching alignments only\n ") :   fprintf(stderr,"Not paired-end read\n");     
+ 		properPairs ?  fprintf(stderr,"Paired-end reads - keep matching alignments only\n ") :   fprintf(stderr,"Not paired-end read\n");
+ 		if (numberOfFastqFiles)   fprintf(stderr,"UnMultiplexed data - %d filenames are used as categories for counts\n ",numberOfFastqFiles);  
     }
     if (bitSize > 64){
 		fprintf(stderr,"Maximum hash size of 64 bits exceeded - %d bits required for encoding\n", bitSize);
 		exit(EXIT_FAILURE);		
 	}
 	if (bitSize > 32){
-		Counts <uint64_t> count (nthreads, erccList.size(),geneList.size(), markMultiHits, sameGeneHitNotMultiHit,mixtureOfWells, markNonRefseq,properPairs,barcodeSize, umiSize, nbinbits, binsizebits, alignDir, sampleId, wellList, shortWellIds, categoryList, refseqToGene, erccToIndex, geneToIndex );
+		Counts <uint64_t> count (nthreads, erccList.size(),geneList.size(), markMultiHits, sameGeneHitNotMultiHit,mixtureOfWells, markNonRefseq,properPairs,barcodeSize, umiSize, nbinbits, binsizebits, alignDir, sampleId, wellList, shortWellIds, categoryList, refseqToGene, erccToIndex, geneToIndex ,numberOfFastqFiles,numberOfWells);
 		count.print(resultsDir,filteredSAMfiles);	
     }
     else if (bitSize > 16){
-		Counts <uint32_t> count (nthreads, erccList.size(),geneList.size(), markMultiHits,sameGeneHitNotMultiHit,mixtureOfWells, markNonRefseq,properPairs,barcodeSize, umiSize, nbinbits, binsizebits, alignDir, sampleId, wellList, shortWellIds, categoryList, refseqToGene, erccToIndex, geneToIndex );
+		Counts <uint32_t> count (nthreads, erccList.size(),geneList.size(), markMultiHits,sameGeneHitNotMultiHit,mixtureOfWells, markNonRefseq,properPairs,barcodeSize, umiSize, nbinbits, binsizebits, alignDir, sampleId, wellList, shortWellIds, categoryList, refseqToGene, erccToIndex, geneToIndex,numberOfFastqFiles,numberOfWells );
 		count.print(resultsDir,filteredSAMfiles);	
 	}
     else {
-		Counts <uint8_t> count (nthreads, erccList.size(),geneList.size(), markMultiHits,sameGeneHitNotMultiHit,mixtureOfWells, markNonRefseq,properPairs,barcodeSize, umiSize, nbinbits, binsizebits, alignDir, sampleId, wellList, shortWellIds, categoryList, refseqToGene, erccToIndex, geneToIndex );
+		Counts <uint8_t> count (nthreads, erccList.size(),geneList.size(), markMultiHits,sameGeneHitNotMultiHit,mixtureOfWells, markNonRefseq,properPairs,barcodeSize, umiSize, nbinbits, binsizebits, alignDir, sampleId, wellList, shortWellIds, categoryList, refseqToGene, erccToIndex, geneToIndex ,numberOfFastqFiles,numberOfWells );
 		count.print(resultsDir,filteredSAMfiles);		
 	}	 
 }

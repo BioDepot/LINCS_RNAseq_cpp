@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <stdexcept>
 #include <glob.h>
+#include "boost/filesystem.hpp"
 
 //default definitions - can be overridden by passing variables to make
 
@@ -36,6 +37,8 @@ bool polyACheck(std::string &sequence);
 void readRefseq(std::string filename, std::unordered_map<std::string,std::string> &refseqToGene,std::vector<std::string> &geneList);
 std::string  readWells(std::string filename, std::unordered_map<std::string,uint32_t> &wellToIndex, std::vector<std::string> &wellList, std::vector<std::string> &shortWellIds);
 std::string  readWells(std::string filename, std::unordered_map<std::string,uint32_t> &wellToIndex, std::vector<std::string> &wellList);
+void  readFastqFileList(std::string filename, std::unordered_map<std::string,uint32_t> &wellToIndex,std::vector<std::string> &wellList, std::vector<std::string> &shortWellIds);
+
 void readERCC(std::string filename, std::vector<std::string> &erccList);
 void readAlignedFiles(std::string aligned_dir, std::vector<std::string> &alignedFiles, std::string suffix, std::string well, bool mixtureOfWells);
 void splitStr(char *cstr,const char *delim, std::vector<std::string> &items);
@@ -345,6 +348,31 @@ std::string readWells(std::string filename, std::unordered_map<std::string,uint3
 	}
 	fclose(fp);
 	return std::string(id);	
+}
+void readFastqFileList(std::string filename, std::unordered_map<std::string,uint32_t> &wellToIndex,std::vector<std::string> &wellList, std::vector<std::string> &shortWellIds){
+	FILE *fp=fopen(filename.c_str(),"r");
+	if(!fp)exit(EXIT_FAILURE);
+	char line[4096],fileID[1024],shortId[1024];
+	uint32_t k=0;
+	while(fgets(line,sizeof(line),fp)){
+	  fileID[0]=0;
+	  sscanf(line,"%s",fileID);
+	  if(fileID[0]){
+		 std::string fileIDString=std::string(fileID);
+		 //strip the extensions away - can be more than one eg fastq.gz
+		 boost::filesystem::path p(fileIDString);
+	     std::string filestem=p.stem().string();
+		 while (fileIDString != filestem){
+				fileIDString=filestem;
+				boost::filesystem::path p(fileIDString);
+				filestem=p.stem().string();
+		 }
+		 wellList.push_back(fileIDString);
+		 shortWellIds.push_back(fileIDString); 
+	     wellToIndex[fileIDString]=k++;
+	   }
+	 }
+	 fclose(fp);
 }	
 void readERCC(std::string filename, std::vector<std::string> &erccList){
 	FILE *fp=fopen(filename.c_str(),"r");

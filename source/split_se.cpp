@@ -82,8 +82,7 @@ int main(int argc, char *argv[]){
 		}		
 	}
 	//this assumes linux style directories 
-	//make a subDir to store splits because the demux version of this makes subdirs for each well
-	std::string splitDir=outputDir+"/splits/";
+	std::string splitDir=outputDir+"/";
     fs::create_directory(fs::system_complete(splitDir));
 
     #pragma omp parallel for num_threads (nThreads) schedule (dynamic)
