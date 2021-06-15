@@ -91,7 +91,7 @@ int main(int argc, char *argv[]){
 	}
 	//this assumes linux style directories 
 	//make a subDir to store splits because the demux version of this makes subdirs for each well
-	std::string splitDir=outputDir+"/splits/";
+	std::string splitDir=outputDir+"/";
     fs::create_directory(fs::system_complete(splitDir));
 
     #pragma omp parallel for num_threads (nThreads) schedule (dynamic)
@@ -163,12 +163,14 @@ bool getLines(gzFile fp1, gzFile fp2, char *bufferR1, char *bufferR2, bool *mism
     char *bufptr1=bufferR1;
     char *bufptr2=bufferR2; 
     //check first line for mismatch
-    if(!gzgets(fp1,bufferR1,lineSize) || !gzgets(fp2, bufferR2,lineSize)) return 0;
+    if(!gzgets(fp1,bufferR1,lineSize)) return 0;
+    if(!gzgets(fp2, bufferR2,lineSize)) return 0; 
     *mismatch=checkNames(bufferR1,bufferR2);
     bufptr1+=strlen(bufptr1);
     bufptr2+=strlen(bufptr2);
     for (int i=0;i<3;i++){
-        if(!gzgets(fp1,bufptr1,lineSize) || !gzgets(fp2, bufptr2,lineSize)) return 0;
+        if(!gzgets(fp1,bufptr1,lineSize)) return 0;
+        if(!gzgets(fp2,bufptr2,lineSize)) return 0;
 		bufptr1+=strlen(bufptr1);
 		bufptr2+=strlen(bufptr2);
 	}
@@ -178,7 +180,6 @@ bool checkNames(char *line1,char *line2){
     char *a=line1,*b=line2;
     while(*a && *b){
         if (*a ==' ' && *b== ' '){
-            *a=0;
             return 0;
         }        
         if (*a != *b) return 1;

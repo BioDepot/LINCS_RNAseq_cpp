@@ -8,9 +8,13 @@ clean() {
 
 #(cd ./source; rm -r w96; make clean; make)
 clean ./data/LINCS
-echo "testing on non-multiplexed files"
-echo "./testScripts/generateNoMultiplex.sh ${PWD}"
-./testScripts/generateNoMultiplex.sh ${PWD} 
+echo "testing on pe files"
+echo "./testScripts/generatePE.sh ${PWD}"
+./testScripts/generatePE.sh ${PWD} 
+#clean ./data/LINCS
+#echo "testing on non-multiplexed files"
+#echo "./testScripts/generateNoMultiplex.sh ${PWD}"
+#./testScripts/generateNoMultiplex.sh ${PWD} 
 #clean ./data/LINCS
 #echo "creating no-umi files"
 #cho "./testScripts/generateNoUMI.sh ${PWD}"
