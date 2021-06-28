@@ -25,7 +25,7 @@ int main(int argc, char *argv[]){
     bool compressFlag=0,writeDoneFiles=0;
     char verbose=0,barcode=0;
     uint64_t maxSizeKB=0;  
-    int l1,l2,emptySeqs=0,nameMismatch=0,minQual=10,UMILength=R1_LENGTH,nArgs=0;
+    int l1,l2,emptySeqs=0,nameMismatch=0,minQual=10,barcodeUMILength=R1_LENGTH,nArgs=0;
     unsigned int barcodeSize=0;
     int adjustedQ=minQual+33;
     char *arg=0,*outputFileName=0;
@@ -76,7 +76,7 @@ int main(int argc, char *argv[]){
                 barcodeFileName=options.optarg;
             break;
             case 'l':
-                UMILength=atoi(options.optarg);//not the well barcode
+                barcodeUMILength=atoi(options.optarg);//not the well barcode
             break;
             case 'q':
                 minQual=atoi(options.optarg);
@@ -104,7 +104,7 @@ int main(int argc, char *argv[]){
 	if(verbose){
 		//print out the parameters
 		fprintf(stderr,"Verbose mode on\n");
-		fprintf(stderr,"UMI Length %d\n",UMILength);
+		fprintf(stderr,"UMI Length %d\n",barcodeUMILength);
 		fprintf(stderr,"Barcode fileName %s\n",barcodeFileName.c_str());
 		fprintf(stderr,"Output directory is %s\n",outputDir.c_str());
 		fprintf(stderr,"Minimum quality %d\n",minQual);		
@@ -230,16 +230,16 @@ int main(int argc, char *argv[]){
             int k=0;
             char *cptr=linesR1[1];
             char *qptr=linesR1[3];
-			while(*cptr && k < UMILength){
+			while(*cptr && k < barcodeUMILength){
                 if(*qptr<adjustedQ)*cptr='N';
                 cptr++;qptr++;k++;
             } 
             //check if there is a N
-            if(filter && Ncheck(linesR1[1]+wellSequenceSize,UMILength-wellSequenceSize)) continue;
+            if(filter && Ncheck(linesR1[1]+wellSequenceSize,barcodeUMILength-wellSequenceSize)) continue;
             const unsigned int barcodeIndex=barcodePanel[tid]->bestMatch(linesR1[1]);
             if(filter && !barcodeIndex)continue;
 			//skip if ambiguous barcode and get unique barcode index from sequence
-			std::string umiBarcode(linesR1[1]+wellSequenceSize,UMILength-wellSequenceSize);
+			std::string umiBarcode(linesR1[1]+wellSequenceSize,barcodeUMILength-wellSequenceSize);
 			unsigned int  umiBarcodeIndex=0;
 			if (filter && ambigCheck(umiBarcode,umiBarcodeIndex)) continue;
 			ofp=0;ofpgz=0;
@@ -247,7 +247,7 @@ int main(int argc, char *argv[]){
 			else ofp=ofps[barcodeIndex];
             //check maxSize when writing
             if(maxSize){
-                uint16_t lineBytes=strlen(linesR2)+strlen(linesR1[0])+UMILength+7;
+                uint16_t lineBytes=strlen(linesR2)+strlen(linesR1[0])+barcodeUMILength+7;
                 if (barcodeIndex && lineBytes+fileSizes[barcodeIndex] > maxSize){
 					closeFile(ofp,ofpgz,filenames[barcodeIndex],writeDoneFiles);
 					std::string file =outputDir+"/"+barcodePanel[tid]->wells[barcodeIndex-1]+"/"+R1stem+"R2_"+barcodePanel[tid]->wells[barcodeIndex-1]+"_"+std::to_string(numberofFiles[barcodeIndex])+".fq";
@@ -275,8 +275,8 @@ int main(int argc, char *argv[]){
 					*bufPtr++=*dest++;	
 				}
                 *bufPtr++=':';
-				memcpy(bufPtr,linesR1[1],UMILength);
-				bufPtr+=UMILength;
+				memcpy(bufPtr,linesR1[1],barcodeUMILength);
+				bufPtr+=barcodeUMILength;
 				*bufPtr++='\n';
 				dest=linesR2;
 				while(*dest){
