@@ -10,9 +10,9 @@ extern "C" {
  #include "optparse.h"  
 }
 bool getLines(gzFile fp1, char *bufferR1);
-bool closeFile(FILE *fp,gzFile gzfp, std::string filename,bool writeFile);
+bool closeFile(FILE *fp,gzFile gzfp, std::string filename,bool writeDoneFiles);
 bool writeFilename(std::string filename,std::string suffix);
-bool openFiles(FILE **ofp1, gzFile *ofpgz1, std::string R1stem,std::string outputDir, int numFiles,bool compressFlag);
+std::string openFiles(FILE **ofp1, gzFile *ofpgz1, std::string R1stem,std::string outputDir, int numFiles,bool compressFlag);
 int writeLines(FILE *ofp,gzFile ofpgz,char *buf,unsigned int buflen,bool compressFlag);
 
 std::string errmsg="split_pe h?vdt:zs:o:q:\n-h -? (display this message)\n-v (Verbose mode)\n-z Compress the output as gzip files\n-s The maximum size of the split file in KB\n):\n-t <number of threads(1)>\n-o <Output Directory>\n<R1file.1> <R2file.1>..<R1file.N> <R2file.N>\n\nExample:\numisplit -b References/Broad_UMI/barcodes_trugrade_96_set4.dat -o Aligns sample1_R1.fastq.gz sample1_R2.fastq.gz sample2_R1.fastq.gz sample2_R2.fastq.gz\n";
@@ -106,19 +106,19 @@ int main(int argc, char *argv[]){
         gzFile ofpgz1=0;
         uint64_t fileSize1;
         char linesR1[4096];
-        openFiles(&ofp1,&ofpgz1,R1stem,splitDir,numFiles,compressFlag);
+        std::string partialFile=openFiles(&ofp1,&ofpgz1,R1stem,splitDir,numFiles,compressFlag);
         while (getLines(fp1,linesR1)){
             const unsigned int len1=strlen(linesR1);
 			fileSize1+=len1;
             if(maxSize && fileSize1 > maxSize){
-				openFiles(&ofp1,&ofpgz1,R1stem,splitDir,numFiles,compressFlag);
-				fileSize1=len1;
+				closeFile(ofp1,ofpgz1,partialFile,writeDoneFiles);
 				numFiles++;
+				partialFile=openFiles(&ofp1,&ofpgz1,R1stem,splitDir,numFiles,compressFlag);
+				fileSize1=len1;
 			}
 			writeLines(ofp1,ofpgz1,linesR1,len1,compressFlag);
 		}
-		std::string outputFileR1=outputDir+"/"+R1stem;
-		closeFile(0,fp1,outputFileR1,writeDoneFiles);
+		closeFile(ofp1,ofpgz1,partialFile,writeDoneFiles);
 	}
     return 0;  
 }
@@ -139,29 +139,27 @@ bool getLines(gzFile fp1, char *bufferR1){
     return 1;    
 }
 
-bool openFiles(FILE **ofp1,gzFile *ofpgz1, std::string R1stem,std::string outputDir, int numFiles,bool compressFlag){
+std::string openFiles(FILE **ofp1,gzFile *ofpgz1, std::string R1stem,std::string outputDir, int numFiles,bool compressFlag){
 	const int numFieldSize=6;
     std::string numFilesString=std::to_string(numFiles);
     if (numFilesString.length() < numFieldSize) numFilesString = std::string(numFieldSize - numFilesString.length(), '0') + numFilesString;
 	std::string outputfileR1 =outputDir+"/"+R1stem+"_"+ numFilesString +".fq";
 	if (compressFlag){
 	  outputfileR1+=".gz";
-	  if (*ofpgz1)gzclose(*ofpgz1);
 	  *ofpgz1 = gzopen(outputfileR1.c_str(), "wb");
-	  if (!*ofpgz1) return 0;
+	  if (!*ofpgz1) return "";
 	}
 	else{
-	  if (*ofp1)fclose(*ofp1);
 	  *ofp1 = fopen(outputfileR1.c_str(), "w");
-	  if (!*ofp1) return 0;		
+	  if (!*ofp1) return "";		
     }
-    return 1;
+    return outputfileR1;
 }
-bool closeFile(FILE *fp,gzFile gzfp, std::string filename,bool writeFile){
+bool closeFile(FILE *fp,gzFile gzfp, std::string filename,bool writeDoneFiles){
 	if (fp) fclose(fp);
 	else if (gzfp) gzclose(gzfp);
 	else return 1;
-	if (writeFile) writeFilename(filename,"done");
+	if (writeDoneFiles) writeFilename(filename,"done");
 	return 0;	
 }
 bool writeFilename(std::string filename,std::string suffix){
