@@ -123,8 +123,9 @@ int main(int argc, char *argv[]){
 			writeLines(ofp1,ofpgz1,linesR1,len1,compressFlag);
 		}
 		closeFile(ofp1,ofpgz1,partialFile,writeDoneFiles);
-		std::string outputFileR1=outputDir+"/"+R1stem;
-		closeFile(0,fp1,outputFileR1,writeDoneFiles);
+		
+		std::string doneStem=outputDir+"/"+R1stem;
+		if (writeDoneFiles) writeFilename(doneStem,"done");
 	}
     return 0;  
 }
