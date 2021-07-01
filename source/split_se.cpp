@@ -15,7 +15,7 @@ bool writeFilename(std::string filename,std::string suffix);
 std::string openFiles(FILE **ofp1, gzFile *ofpgz1, std::string R1stem,std::string outputDir, int numFiles,bool compressFlag);
 int writeLines(FILE *ofp,gzFile ofpgz,char *buf,unsigned int buflen,bool compressFlag);
 
-std::string errmsg="split_pe h?vdt:zs:o:q:\n-h -? (display this message)\n-v (Verbose mode)\n-z Compress the output as gzip files\n-s The maximum size of the split file in KB\n):\n-t <number of threads(1)>\n-o <Output Directory>\n<R1file.1> <R2file.1>..<R1file.N> <R2file.N>\n\nExample:\numisplit -b References/Broad_UMI/barcodes_trugrade_96_set4.dat -o Aligns sample1_R1.fastq.gz sample1_R2.fastq.gz sample2_R1.fastq.gz sample2_R2.fastq.gz\n";
+std::string errmsg="split_se h?vdt:zs:o:q:\n-h -? (display this message)\n-v (Verbose mode)\n-z Compress the output as gzip files\n-s The maximum size of the split file in KB\n):\n-t <number of threads(1)>\n-o <Output Directory>\n<R1file.1> <R2file.1>..<R1file.N> <R2file.N>\n\nExample:\numisplit -b References/Broad_UMI/barcodes_trugrade_96_set4.dat -o Aligns sample1_R1.fastq.gz sample1_R2.fastq.gz sample2_R1.fastq.gz sample2_R2.fastq.gz\n";
   
 int main(int argc, char *argv[]){
     bool compressFlag=0,writeDoneFiles=0;
@@ -28,10 +28,11 @@ int main(int argc, char *argv[]){
     int nThreads=1;
     int filter=0;
     std::string outputDir="";
+    std::string outputSubDir="all";
     std::vector<std::string> inputFiles;
  
  //parse flags
-    while ((opt = optparse(&options, "h?vdt:zs:o:")) != -1) {
+    while ((opt = optparse(&options, "h?vdt:zs:S:o:")) != -1) {
         switch (opt){
             case 'v':
                 verbose=1;
@@ -47,6 +48,9 @@ int main(int argc, char *argv[]){
             break;     
 			case 'o':
                 outputDir=std::string(options.optarg);
+			break;
+			case 'S':
+                outputSubDir=std::string(options.optarg);
 			break;
             case 't':
                 nThreads=atoi(options.optarg);
@@ -82,7 +86,7 @@ int main(int argc, char *argv[]){
 		}		
 	}
 	//this assumes linux style directories 
-	std::string splitDir=outputDir+"/";
+	std::string splitDir=outputDir+"/"+outputSubDir;
     fs::create_directory(fs::system_complete(splitDir));
 
     #pragma omp parallel for num_threads (nThreads) schedule (dynamic)
@@ -119,6 +123,8 @@ int main(int argc, char *argv[]){
 			writeLines(ofp1,ofpgz1,linesR1,len1,compressFlag);
 		}
 		closeFile(ofp1,ofpgz1,partialFile,writeDoneFiles);
+		std::string outputFileR1=outputDir+"/"+R1stem;
+		closeFile(0,fp1,outputFileR1,writeDoneFiles);
 	}
     return 0;  
 }
