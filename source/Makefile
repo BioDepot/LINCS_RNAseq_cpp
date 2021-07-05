@@ -30,7 +30,7 @@ else
   endif
  endif
 endif
-LIBS= -lboost_filesystem -lboost_system -lgomp -lm -lc -lgcc -lrt -lz
+LIBS=-lboost_filesystem -lboost_system -lgomp -lm -lc -lgcc -lrt -lz
 MERGELIBS= -lm -lc -lgcc -lrt -lz
 MKDIR_P = mkdir -p
 #ifdef ALPINE
@@ -67,7 +67,7 @@ umimerge_parallel.o : umimerge_parallel.cpp
 	$(CPP) $(CFLAGS) -c umimerge_parallel.cpp			
 	
 umimerge_filter : $(OBJ_umimerge_filter)
-	$(LD) -o ${DIR}umimerge_filter -static-libstdc++ $(OBJ_umimerge_filter) $(MERGELIBS) $(LIBS)
+	$(LD) -o ${DIR}umimerge_filter -static-libstdc++ $(OBJ_umimerge_filter) $(MERGELIBS)
 umimerge_filter.o : umimerge_filter.cpp 
 	$(CPP) $(CFLAGS) -c umimerge_filter.cpp			
 

@@ -5,7 +5,7 @@
 #include "kseq.h"
 #include <glob.h>
 #include "umitools.hpp"
-
+#include "boost/filesystem.hpp"
 
 //presently hardcoded for UMI size 16 and well barcode size 6
 //to generalize have to generalize the hash function as well
@@ -25,7 +25,33 @@
  //left shift the unique encoding of the gene levels by maxBin bits and or it with the encoded bin 
  //The results should look like CCCCCCCCCCCPPPPPPPPP   where the C's are the bits encoding the category/UMI and P are the bits encoding the position
 
- 
+void  readFastqFileList(std::string filename, std::unordered_map<std::string,uint32_t> &wellToIndex,std::vector<std::string> &wellList, std::vector<std::string> &shortWellIds);
+
+void readFastqFileList(std::string filename, std::unordered_map<std::string,uint32_t> &wellToIndex,std::vector<std::string> &wellList, std::vector<std::string> &shortWellIds){
+	FILE *fp=fopen(filename.c_str(),"r");
+	if(!fp)exit(EXIT_FAILURE);
+	char line[4096],fileID[1024],shortId[1024];
+	uint32_t k=0;
+	while(fgets(line,sizeof(line),fp)){
+	  fileID[0]=0;
+	  sscanf(line,"%s",fileID);
+	  if(fileID[0]){
+		 std::string fileIDString=std::string(fileID);
+		 //strip the extensions away - can be more than one eg fastq.gz
+		 boost::filesystem::path p(fileIDString);
+	     std::string filestem=p.stem().string();
+		 while (fileIDString != filestem){
+				fileIDString=filestem;
+				boost::filesystem::path p(fileIDString);
+				filestem=p.stem().string();
+		 }
+		 wellList.push_back(fileIDString);
+		 shortWellIds.push_back(fileIDString); 
+	     wellToIndex[fileIDString]=k++;
+	   }
+	 }
+	 fclose(fp);
+}
 
 extern "C" {
  #include "optparse/optparse.h"  
