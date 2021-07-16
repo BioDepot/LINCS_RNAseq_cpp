@@ -501,7 +501,6 @@ template <class T> T encodeMapping(uint32_t category, uint32_t umiIndex, uint32_
 
 template <class T> bool samToCategory(T &category, uint32_t &umiIndex, uint32_t &pos, bool &multiHit, std::string &alignedId, char *fullLine, uint8_t barcodeSize,uint8_t umiSize, std::unordered_map<std::string,std::string> &refseqToGene, std::unordered_map<std::string,uint32_t> &erccToIndex, std::unordered_map<std::string,uint32_t> &geneToIndex, uint32_t posMask, uint8_t binsizebits, uint8_t nbinbits, bool multiHits, bool sameGeneHitNotMultiHit, bool properPairs, bool &unassigned, bool &nonRefseq){
 	if(fullLine[0] == '@') return 0;
-	fprintf(stderr,"%s\n",fullLine);
 	const uint32_t geneListSize = geneToIndex.size();
 	const uint32_t erccListSize = erccToIndex.size();
 	//add 1 for chrM
