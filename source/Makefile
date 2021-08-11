@@ -44,7 +44,7 @@ LFLAGS = -static-libstdc++
 default: all
 all: all96 all384 clean
 all96: clean directories96 umimerge_parallel umimerge_filter umisplit split_pe split_se streamSplit
-all384: clean directories384 umimerge_parallel umimerge_filter umisplit split_pe split_se
+all384: clean directories384 umimerge_parallel umimerge_filter umisplit split_pe split_se streamSplit
 
 OBJ_umisplit = umisplit.o optparse.o 
 OBJ_split_pe = split_pe.o optparse.o 
