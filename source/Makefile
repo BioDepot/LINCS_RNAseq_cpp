@@ -43,11 +43,12 @@ LFLAGS = -static-libstdc++
 
 default: all
 all: all96 all384 clean
-all96: clean directories96 umimerge_parallel umimerge_filter umisplit split_pe split_se
+all96: clean directories96 umimerge_parallel umimerge_filter umisplit split_pe split_se streamSplit
 all384: clean directories384 umimerge_parallel umimerge_filter umisplit split_pe split_se
 
 OBJ_umisplit = umisplit.o optparse.o 
 OBJ_split_pe = split_pe.o optparse.o 
+OBJ_streamSplit = streamSplit.o optparse.o 
 OBJ_split_se = split_se.o optparse.o 
 OBJ_umimerge_parallel = umimerge_parallel.o optparse.o 
 OBJ_umimerge_filter = umimerge_filter.o optparse.o 
@@ -75,6 +76,11 @@ umisplit : $(OBJ_umisplit)
 	$(LD) -o ${DIR}umisplit $(LFLAGS) $(OBJ_umisplit) $(LIBS)
 umisplit.o : umisplit.cpp 
 	$(CPP) $(CFLAGS) -c umisplit.cpp
+	
+streamSplit : $(OBJ_streamSplit)
+	$(LD) -o ${DIR}streamSplit $(LFLAGS) $(OBJ_streamSplit) $(LIBS)
+streamSplit.o : streamSplit.cpp 
+	$(CPP) $(CFLAGS) -c streamSplit.cpp
 
 split_pe : $(OBJ_split_pe)
 	$(LD) -o ${DIR}split_pe $(LFLAGS) $(OBJ_split_pe) $(LIBS)
